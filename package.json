@@ -11,11 +11,12 @@
     "botkit": "^0.4.9",
     "jira-client": "^4.2.0",
     "jira2slack": "^1.0.0",
+    "slack": "^8.2.0",
     "total.js": "2.3.0"
   },
   "author": {
     "name": "Maros Novak",
-    "email": "novkmaros@gmail.com",
+    "email": "novkmaros@gmail.com"
   },
   "engines": {
     "node": "6.9.4"
