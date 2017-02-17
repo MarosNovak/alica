@@ -16,8 +16,10 @@ NEWSCHEMA('Bot').make(function(schema) {
     });
 
     schema.addWorkflow('connect', function(error, model, options, callback) {
-
-        model.slack = BotKit.slackbot({ //debug: true });
+        
+        model.slack = BotKit.slackbot({
+            //debug: true
+        });
 
         model.slack.spawn({
             token: process.env.SLACK_API_KEY,

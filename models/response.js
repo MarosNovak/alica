@@ -1,12 +1,28 @@
 NEWSCHEMA('Response').make(function(schema) {
 
+    schema.addOperation('statusResponse', function (error, model, modules, callback) {
+        return callback(buildStatusResponse(modules));
+    });
+
+    schema.addOperation('helpResponse', function (error, model, options, callback) {
+        return callback(buildHelp());
+    });
+
     schema.addOperation('issuesResponse', function(error, model, issues, callback) {
         return callback(buildResponseIssues(issues));
-    })
+    });
 
     schema.addOperation('issueResponse', function (error, model, issue, callback) {
         return callback(buildSingleIssue(issue));
-    })
+    });
+
+    schema.addOperation('enableModuleResponse', function (error, model, options, callback) {
+        return callback(buildEnableModuleResponse(options));
+    });
+
+    schema.addOperation('basicResponse', function (error, model, message, callback) {
+        return callback(buildBasicResponse(message));
+    });
 
     function buildResponseIssues(issues) {
         var self = this;
@@ -87,4 +103,51 @@ NEWSCHEMA('Response').make(function(schema) {
         return json;
     }
 
+    function buildHelp() {
+        var title = 'This is a few commands I understand:\n\n';
+        var general = '*_General Commands_*\n';
+        var status = '`status` give you current modules status.\n';
+        var enableModule =  '`enable {module}` will activate module: _standup_, _monitoring_, _reporting_.\n';
+        var disableModule = '`disable {module}` stop module.\n';
+        var help = '`help` for this wondeful and useful list.\n\n';
+        var standup = '*_Standup_*\n';
+        var startStandup = '`start standup` will automatically start daily standup for your team.\n';
+        var cancel = '`cancel` cancel current standup.\n\n';
+        var monitoring = '*_Monitoring_*\n';
+        var monitor = '`monitor` will automatically start tracking current sprint and notify about any problem.\n\n';
+        var reporting = '*_Reporting_*\n';
+        var issues = '`sprint issues` provide list of issues in current sprint.\n';
+        var users = '`@user issues` provide list of assigned issues.\n';
+        var issue = '`{Issue number} progress` progress about specific issue.';
+
+        var json = {
+            text: title + general + status + enableModule + disableModule + help + standup + startStandup + cancel + monitoring + monitor + reporting + issues + users + issue
+        };
+        return json;
+    }
+
+    function buildStatusResponse(modules) {
+        var json = {
+            text: 'This is status about enabled/disabled bot modules.',
+            attachments: []
+        };
+
+        if (modules) {
+            modules.forEach(function (moduleObject) {
+                var object = {
+                    title: moduleObject.name,
+                    text: moduleObject.description,
+                    color: moduleObject.enabled == true ? 'good' : '#DE0416'
+                }
+                json.attachments.push(object);
+            });
+        }
+        return json;
+    }
+
+    function buildBasicResponse(message) {
+        if (message) {
+            return message;
+        }
+    }
 });

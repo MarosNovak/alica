@@ -1,0 +1,3 @@
+{"name":"standup","enabled":true,"description":"Daily standup bot for every day use.","projectName":"Fris-kill","content":null}
+{"name":"monitoring","enabled":true,"description":"Monitoring jira sprint.","projectName":"Fris-kill","content":null}
+{"name":"reporting","enabled":true,"description":"Reportiing jira issues.","projectName":"Fris-kill","content":null}
