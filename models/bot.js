@@ -5,6 +5,7 @@ NEWSCHEMA('Bot').make(function(schema) {
     schema.define('parser', 'Object');
     schema.define('slack', 'Object');
     schema.define('emitter', 'Object');
+    schema.define('bot', 'Object');
 
     schema.setDefault(function(name) {
         switch(name) {
@@ -15,14 +16,18 @@ NEWSCHEMA('Bot').make(function(schema) {
         }
     });
 
+    /**
+     * Connect slackbot and initialize real time messaging
+     * @return EMIT MESSAGE
+     */
     schema.addWorkflow('connect', function(error, model, options, callback) {
         
         model.slack = BotKit.slackbot({
             //debug: true
         });
 
-        model.slack.spawn({
-            token: process.env.SLACK_API_KEY,
+        model.bot = model.slack.spawn({
+            token: process.env.SLACK_API_KEY
         }).startRTM();
 
         model.slack.on('direct_message', function(bot, message) {
@@ -45,4 +50,12 @@ NEWSCHEMA('Bot').make(function(schema) {
         return callback();
     });
 
+    schema.addWorkflow('getMembers', function(error, model, options, callback) {
+        model.bot.api.users.list({},function(err, responseMembers) {
+            if (err) {
+                return callback(err);
+            }
+            return callback(err, responseMembers);
+        });
+    });
 });
