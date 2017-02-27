@@ -37,17 +37,49 @@ NEWSCHEMA('Bot').make(function(schema) {
                     return;
                 }
                 if (results) {
-                    model.emitter.emit(results.module, results, bot, message);
+                    model.emitter.emit(results.module, results, message);
                 }
             });
         });
-
         return callback();
     });
 
     schema.addWorkflow('reply', function(error, model, options, callback) {
-        options.bot.reply(options.message, options.response);
+        console.log('ODOSLANE');
+        model.bot.reply(options.message, options.response);
         return callback();
+    });
+
+    schema.addWorkflow('askQuestion', function(error, model, options, callback) {
+        let conversation = options.conversation;
+        let text = options.question;
+        conversation.ask(text, function(message, conversation) {
+            model.parser.operation('parseStandupMessage', message, function(err, results) {
+                if (err) {
+                    console.log('ERR PARSER: ', err);
+                    return;
+                }
+                if (results) {
+                    model.emitter.emit(results.module, results, message, conversation);
+                }
+            });
+            conversation.next();
+        });
+    });
+
+    schema.addWorkflow('postMessage', function(error, model, message, callback) {
+        model.bot.say(message);
+        return callback();
+    });
+
+    schema.addWorkflow('startConversations', function(error, model, options, callback) {
+        var users = options.users;
+        users.forEach(function(user) {
+            model.bot.startPrivateConversation( { user: user.slackID }, function(err, conversation) {
+                console.log('PRIVATE CONVERSATION STARTED WITH', user.slackID);
+                return callback(err, conversation);
+            });
+        });
     });
 
     schema.addWorkflow('getMembers', function(error, model, options, callback) {
