@@ -5,44 +5,57 @@ var SlackModule = GETSCHEMA('Module');
 
 slackbot.$workflow('connect', function(err) {
     console.log('CONNECTED');
-    slackbot.emitter.on('JIRA', (results, bot, message) => {
-        console.log('JIRA EMIT');
-        switch(results.type) {
-            case 'ALL_ISSUES':
-                return processAllIssuesJiraTask(bot, message);
-        }
-    });
-    slackbot.emitter.on('GENERAL', (results, bot, message) => {
+
+    slackbot.emitter.on('GENERAL', (results, message) => {
         console.log('GENERAL EMIT');
         switch (results.type) {
+            case 'INIT':
+                return processInit(message);
             case 'HELP':
-            return processHelpMessage(bot, message);
+                return processHelpMessage(message);
             case 'STATUS':
-            return processStatusMessage(bot, message);
+                return processStatusMessage(message);
             case 'ENABLE':
-            return changeModuleEnabledStatus(bot, message, true);
+                return processModuleChangeEnable(message, true);
             case 'DISABLE':
-            return changeModuleEnabledStatus(bot, message, false);
-            break;
+                return processModuleChangeEnable(message, false);
+            case 'ADMIN':
+                return processModuleAdminRights(message);
+        }
+    });
+
+    slackbot.emitter.on('REPORTING', (results, message) => {
+        console.log('REPORTING EMIT');
+        switch(results.type) {
+            case 'ALL_ISSUES':
+                return processAllIssueInCurrentSprint(message);
+            case 'USER_ISSUES':
+                return processUsersIssues(message);
+        }
+    });
+
+    slackbot.emitter.on('STANDUP', (results, message) => {
+        console.log('STANDUP EMIT');
+        switch(results.type) {
+            case 'START':
+                return processStartDailyStandup(message);
+            case 'SCHEDULE':
+                return scheduleDailyStandup(message);
+            case 'CHANNEL':
+                return processChannelSetup(message);
+            case 'USERS':
+                return processUsersInStandup(message);
+        }
+    });
+
+    slackbot.emitter.on('STANDUP_ANSWER', (results, message, conversation) => {
+        console.log('STANDUP ANSWER EMIT');
+        switch (results.type) {
+            case 'DEFAULT':
+                return processUserAnsweredQuestion(message, conversation);
         }
     });
 });
-
-function processAllIssuesJiraTask(bot, message) {
-    jira.$workflow('getSprintIssues', function(err, issues) {
-        if (err) {
-            console.log('CHYBA: ', err);
-            return;
-        }
-        Response.operation('issuesResponse', issues, function(err, response) {
-            if (err) {
-                console.log('CHYBA: ', err);
-                return;
-            }
-            console.log('RESPONSE: ' + JSON.stringify(response));
-            slackbot.$workflow('reply', { bot, message, response }, function() {
-                console.log('ODOSLANE');
-                return;
             });
         });
     });
