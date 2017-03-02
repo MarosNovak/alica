@@ -458,9 +458,12 @@ function processUsersInStandup(message) {
                 } else {
                     var messages = message.text.split(' ');
                     var regex = new RegExp('<@(.*)>');
-                    messages.forEach(function (message) {
+                    messages.forEach(function(message) {
                         if (message.contains('<@')) {
-                            standupModule.content.users.push({ slackID: message.match(regex)[1] })
+                            var slackID = message.match(regex)[1];
+                            if (standupModule.content.users.findIndex('slackID', slackID) < 0) {
+                                standupModule.content.users.push({slackID : slackID})
+                            }
                         }
                     });
                     standupModule.$save(function(error, count) {
