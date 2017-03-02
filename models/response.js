@@ -96,7 +96,7 @@ NEWSCHEMA('Response').make(function(schema) {
         var startStandup = '`start standup` will automatically start daily standup for your team.\n';
         var cancel = '`cancel` cancel current standup.\n';
         var schedule = '`standup time {HH:MM}` for scheduling daily standups.\n';
-        var nope = '`skip` `no` `nope` `nothing` `none` for skip question.'
+        var nope = '`skip` `no` `nope` `nothing` `none` for skip question.\n'
         var add = '`standup add {@users}` to invite users for daily standup.\n\n';
         var monitoring = '*_Monitoring_*\n';
         var monitor = '`monitor` will automatically start tracking current sprint and notify about any problem.\n\n';
@@ -123,7 +123,6 @@ NEWSCHEMA('Response').make(function(schema) {
                 moduleObject.content.users.forEach(function(user) {
                     users += '<@' + user.slackID + '> ';
                 });
-
                 fields = [{
                     title: 'Output Channel',
                     value: '<#' + moduleObject.content.channel + '>',
@@ -134,7 +133,7 @@ NEWSCHEMA('Response').make(function(schema) {
                     short: true
                 }, {
                     title: 'Members',
-                    value: users.lenght ? users : 'None',
+                    value: users != '' ? users : 'None',
                     short: false
                 }]
             }
