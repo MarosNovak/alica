@@ -90,6 +90,22 @@ NEWSCHEMA('Jira').make(function(schema) {
     });
 
     /**
+     * get issues based on issue number
+     * @param {Object} options { issues }
+     * @return {Object} response
+     */
+    schema.addWorkflow('getIssues', function (error, model, issues, callback) {
+        console.log('NACITAVAM JIRA');
+        issues.forEach(function(issue) {
+            model.jira.findIssue('FR-'+ issue.replace('#',''), true).then(function (jiraResponse) {
+                console.log('NACITANA JIRA');
+                console.log('JIRA POLE', JSON.stringify(jiraResponse));
+                var jsonResponse;
+            });
+        });
+    });
+
+    /**
      * Get normalized parsed Jira issue
      * @param {Object} issue parsed issue from Jira
      * @return {Object} normalized issue

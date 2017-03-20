@@ -1,3 +1,4 @@
+var jira = GETSCHEMA('Jira').make();
 var Response = GETSCHEMA('Response');
 
 NEWSCHEMA('Standup').make(function(schema) {
@@ -79,9 +80,15 @@ NEWSCHEMA('Standup').make(function(schema) {
         if (model.specialAnswers.indexOf(message.text) < 0) {
             model.answers.forEach(function(user) {
                 if (user.slackID == message.user) {
+                    console.log(issuesFromMessage(message));
+                    jira.$workflow('getIssues', issuesFromMessage(message), function(err, jiraResponse) {
+
+                    });
+
                     user.answers.push({
-                        question:message.question,
-                        answer: message.text
+                        question: message.question,
+                        answer: message.text,
+                        issues: issuesFromMessage(message)
                     });
                 }
             });
@@ -100,7 +107,7 @@ NEWSCHEMA('Standup').make(function(schema) {
     schema.addWorkflow('userFinishedStandup', function(error, model, user, callback) {
         model.answers.forEach(function(filteredUser) {
             if (filteredUser.slackID == user.slackID) {
-                Response.operation('userStandupAnswerResponse',{ user, answers: filteredUser.answers }, function(error, response) {
+                Response.operation('userStandupAnswerResponse', { user, answers: filteredUser.answers }, function(error, response) {
                     response.channel = model.channel;
                     console.log('RESPONSE', response);
                     if (error) {
@@ -112,4 +119,8 @@ NEWSCHEMA('Standup').make(function(schema) {
             }
         });
     });
+
+    function issuesFromMessage(message) {
+        return message.text.match(/#(\d+)/g);
+    }
 });

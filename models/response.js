@@ -150,7 +150,9 @@ NEWSCHEMA('Response').make(function(schema) {
     }
 
     function buildBasicResponse(message) {
-        if (message) {
+        if (!message) {
+            console.log('FAILED BUILD BASIC RESPONSE');
+        } else {
             return message;
         }
     }
@@ -160,7 +162,7 @@ NEWSCHEMA('Response').make(function(schema) {
         var answers = options.answers;
 
         var json = {
-            text: '<@' +user.slackID+ '> reported his standup status from *' + new Date().format('d. MMM yyyy') + '*',
+            text: '<@' + user.slackID + '> reported his standup status from *' + new Date().format('d. MMM yyyy') + '*',
             attachments: []
         };
         answers.forEach(function(answer) {
