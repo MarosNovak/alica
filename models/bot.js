@@ -21,7 +21,7 @@ NEWSCHEMA('Bot').make(function(schema) {
      * @return EMIT MESSAGE
      */
     schema.addWorkflow('connect', function(error, model, options, callback) {
-        
+
         model.slack = BotKit.slackbot({
             //debug: true
         });
@@ -30,14 +30,16 @@ NEWSCHEMA('Bot').make(function(schema) {
             token: process.env.SLACK_API_KEY
         }).startRTM();
 
-        model.slack.on('direct_message', function(bot, message) {
-            model.parser.operation('parseMessage', message, function(err, results) {
+        model.parser.operation('initAnalyzer');
+
+        model.slack.on('direct_message, mention', function(bot, message) {
+            model.parser.operation('parseMessage', message, function(err, intent) {
                 if (err) {
                     console.log('ERR PARSER: ', err);
                     return;
                 }
-                if (results) {
-                    model.emitter.emit(results.module, results, message);
+                if (intent) {
+                    model.emitter.emit(intent.module, intent);
                 }
             });
         });

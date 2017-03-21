@@ -10,27 +10,25 @@ var standup;
 slackbot.$workflow('connect', function(err) {
     console.log('CONNECTED');
 
-    slackbot.emitter.on('GENERAL', (results, message) => {
+    slackbot.emitter.on('GENERAL', (intent) => {
         console.log('GENERAL EMIT');
-        switch (results.type) {
+        switch (intent.type) {
             case 'INIT':
-                return processInit(message);
+                return processInit(intent);
             case 'HELP':
-                return processHelpMessage(message);
+                return processHelp(intent);
             case 'STATUS':
-                return processStatusMessage(message);
-            case 'ENABLE':
-                return processModuleChangeEnable(message, true);
-            case 'DISABLE':
-                return processModuleChangeEnable(message, false);
+                return processStatus(intent);
+            case 'MODULE':
+                return processModuleChangeEnable(intent);
             case 'ADMIN':
-                return processModuleAdminRights(message);
+                return processModuleAdminRights(intent);
         }
     });
 
     slackbot.emitter.on('REPORTING', (results, message) => {
         console.log('REPORTING EMIT');
-        switch(results.type) {
+        switch(intent.type) {
             case 'ALL_ISSUES':
                 return processAllIssueInCurrentSprint(message);
             case 'USER_ISSUES':
@@ -40,7 +38,7 @@ slackbot.$workflow('connect', function(err) {
 
     slackbot.emitter.on('STANDUP', (results, message) => {
         console.log('STANDUP EMIT');
-        switch(results.type) {
+        switch(intent.type) {
             case 'START':
                 return processStartDailyStandup(message);
             case 'SCHEDULE':
@@ -54,7 +52,7 @@ slackbot.$workflow('connect', function(err) {
 
     slackbot.emitter.on('STANDUP_ANSWER', (results, message, conversation) => {
         console.log('STANDUP ANSWER EMIT');
-        switch (results.type) {
+        switch (intent.type) {
             case 'DEFAULT':
                 return processUserAnsweredQuestion(message, conversation);
         }
@@ -86,14 +84,14 @@ function processInit(message) {
     Help message from Response
     @param {Object} message received message form Slack
 */
-function processHelpMessage(message) {
+function processHelp(intent) {
     Response.operation('helpResponse', function (err, response) {
         if (err) {
             console.log('CHYBA: ', err);
             return;
         }
         console.log('RESPONSE: ' + JSON.stringify(response));
-        slackbot.$workflow('reply', { message, response }, function() {
+        slackbot.$workflow('reply', { message: intent.message, response }, function() {
             console.log('ODOSLANE');
             return;
         });
@@ -104,7 +102,7 @@ function processHelpMessage(message) {
     Get help message from Response
     @param {Object} message received message form Slack
 */
-function processStatusMessage(message) {
+function processStatus(intent) {
     Module.get({}, function (err, modules) {
         if (err) {
             console.log('CHYBA PRI GET Z DB', err);
@@ -116,7 +114,7 @@ function processStatusMessage(message) {
                 return;
             }
             console.log('RESPONSE: ' + JSON.stringify(response));
-            slackbot.$workflow('reply', { message, response }, function() {
+            slackbot.$workflow('reply', { message: intent.message, response }, function() {
                 console.log('ODOSLANE');
                 return;
             });
@@ -129,13 +127,13 @@ function processStatusMessage(message) {
     @param {Object} message received message form Slack
     @param {Boolean} enabled if module should be enabled/disabled
 */
-function processModuleChangeEnable(message, enabled) {
-    checkPermission(message, function(permission) {
+function processModuleChangeEnable(intent) {
+    checkPermission(intent.message, function(permission) {
         if (permission) {
             var self = this;
-            var parts = message.text.split(' ', 2);
+            var enabled = JSON.parse(intent.parameters.enabled);
             var filter = {
-                filter : { name: parts[1] }
+                filter : { name: intent.parameters.module }
             };
             Module.get(filter, function (error, response) {
                 console.log('ERR', error);
@@ -144,7 +142,7 @@ function processModuleChangeEnable(message, enabled) {
                 if (slackModule) {
                     if (slackModule.enabled == enabled) {
                         var answer = { text: 'Module is already' + (enabled ? ' enabled' : ' disabled') };
-                        sendBasicAnswerMessage(message, answer);
+                        sendBasicAnswerMessage(intent.message, answer);
                         return;
                     }
                     slackModule.enabled = enabled;
@@ -153,11 +151,11 @@ function processModuleChangeEnable(message, enabled) {
                             return;
                         }
                         var answer = { text: 'Module *' + slackModule.name + (enabled ? '* enabled.' : '* disabled.') };
-                        sendBasicAnswerMessage(message, answer);
+                        sendBasicAnswerMessage(intent.message, answer);
                     });
                 } else {
                     var answer = { text: 'Module not found.' };
-                    sendBasicAnswerMessage(message, answer);
+                    sendBasicAnswerMessage(intent.message, answer);
                     return;
                 }
             });

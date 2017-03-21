@@ -8,6 +8,7 @@
   "license": "UNLICENSED",
   "version": "0.0.1",
   "dependencies": {
+    "apiai": "^4.0.1",
     "botkit": "^0.4.9",
     "jira-client": "^4.2.0",
     "jira2slack": "^1.0.0",
