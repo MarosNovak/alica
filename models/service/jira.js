@@ -6,7 +6,7 @@ NEWSCHEMA('Jira').make(function(schema) {
     schema.setDefault(function(name) {
         switch(name) {
             case 'jira':
-                return initializeJiraClient();
+                // return initializeJiraClient();
         }
     });
 

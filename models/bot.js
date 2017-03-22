@@ -23,7 +23,7 @@ NEWSCHEMA('Bot').make(function(schema) {
     schema.addWorkflow('connect', function(error, model, options, callback) {
 
         model.slack = BotKit.slackbot({
-            //debug: true
+            debug: true
         });
 
         model.bot = model.slack.spawn({
@@ -32,7 +32,7 @@ NEWSCHEMA('Bot').make(function(schema) {
 
         model.parser.operation('initAnalyzer');
 
-        model.slack.on('direct_message, mention', function(bot, message) {
+        model.slack.on('direct_mention', function(bot, message) {
             model.parser.operation('parseMessage', message, function(err, intent) {
                 if (err) {
                     console.log('ERR PARSER: ', err);
@@ -44,6 +44,20 @@ NEWSCHEMA('Bot').make(function(schema) {
             });
         });
         return callback();
+
+        model.slack.on('direct_message', function(bot, message) {
+            model.parser.operation('parseMessage', message, function(err, intent) {
+                if (err) {
+                    console.log('ERR PARSER: ', err);
+                    return;
+                }
+                if (intent) {
+                    model.emitter.emit(intent.module, intent);
+                }
+            });
+        });
+        return callback();
+
     });
 
     schema.addWorkflow('reply', function(error, model, options, callback) {
