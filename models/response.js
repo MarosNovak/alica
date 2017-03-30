@@ -12,6 +12,10 @@ NEWSCHEMA('Response').make(function(schema) {
         return callback(buildResponseIssues(issues));
     });
 
+    schema.addOperation('issueDetailResponse', function(error, model, issue, callback) {
+        return callback(buildIssueDetail(issue));
+    });
+
     schema.addOperation('enableModuleResponse', function (error, model, options, callback) {
         return callback(buildEnableModuleResponse(options));
     });
@@ -24,58 +28,108 @@ NEWSCHEMA('Response').make(function(schema) {
         return callback(buildResponseIssues(usersIssues));
     });
 
+    schema.addOperation('addedCommentResponse', function (error, model, options, callback) {
+        return callback(buildAddedCommentResponse(options));
+    });
+
+    schema.addOperation('standupReportResponse', function (error, model, checkIn, callback) {
+        return callback(buildStandupReportResponse(checkIn));
+    });
+
     /**
      * Build USer's daily standup response from answers
      * @param {Object} options - { user, answers }
      */
-    schema.addOperation('userStandupAnswerResponse', function (error, model, options, callback) {
-        return callback(buildStandupResponse(options));
+    schema.addOperation('userStandupAnswerResponse', function (error, model, currentUser, callback) {
+        return callback(buildStandupResponse(currentUser));
     });
 
+    function buildIssueDetail(issue) {
+        epochTime = new Date(issue.updated).getTime() / 1000;
+        var json = {
+            text: '<' + buildIssueLink(issue.key) + '|' + issue.key + '> ' + issue.title,
+            attachments: [
+                {   text: issue.description,
+                    color: '#23B6BA',
+                    author_name: issue.typeName,
+                    author_icon: issue.typeImage,
+                    mrkdwn_in: ['text', 'fields'],
+                    fields: [
+                        {
+                            title: 'Status',
+                            value: '`' + issue.status + '`',
+                            short: true
+                        },
+                        {
+                            title: 'Priority',
+                            value: issue.priority,
+                            short: true
+                        },
+                        {
+                            title: 'Assignee',
+                            value: issue.assignee,
+                            short: true
+                        },
+                        {
+                            title: 'Last updated',
+                            value:  '<!date^' + epochTime + '^{date} at {time}| Not defined.>',
+                            short: true
+                        }
+                    ]
+                }
+            ]
+        };
+        return json;
+    }
+
     function buildResponseIssues(issues) {
-        console.log('RESPONSEE', issues);
         var self = this;
         var json = {
+            text: 'Showing ' + issues.length + ' issues returned from Jira.',
             attachments: []
         };
         issues.forEach(function (issue) {
-            var object = buildFieldsForIssue(issue);
+            var object = buildFieldsForBasicIssue(issue);
             json.attachments.push(object);
         });
-        console.log('JAAASON', json);
 
         return json;
     }
 
-    function colorForIssue(issue) {
-        switch (issue.status) {
-            case 'Done':
-                return 'good';
-            case 'To Do':
-                return '#DE0416';
-            case 'In Progress':
-                return '#F3B443';
+    function priorityColorForIssue(issue) {
+        switch (issue.priority) {
+            case 'Highest':
+                return '#EC181D';
+            case 'High':
+                return '#F83E20';
+            case 'Medium':
+                return '#F58925';
+            case 'Low':
+                return '#E3E235';
+            case 'Lowest':
+                return '#A3CF2C';
             default:
             break;
         }
     }
 
-    function buildFieldsForIssue(issue) {
+    function buildAddedCommentResponse(options) {
+        var json = {
+            text: 'Comment added to issue <' + buildIssueLink(options.issue) + '|' + options.issue + '> :v: ```'+ options.comment +'```'
+        };
+        return json;
+    }
+
+    function buildFieldsForBasicIssue(issue) {
         var self = this;
         var object = {
-            title: issue.title,
-            title_link: buildIssueLink(issue.key),
-            color: colorForIssue(issue),
-            fields: [{
-                title: 'Assignee',
-                value: issue.assignee,
-                short: true
-            }, {
-                title: 'Status',
-                value: issue.status,
-                short: true
-            }]
+            text: '`' + issue.status + '` <' + buildIssueLink(issue.key) + '|' + issue.key + '> ' + issue.title,
+            color: priorityColorForIssue(issue),
+            footer: issue.typeName + ' | Priority: ' + issue.priority + ' | Assignee: ' + issue.assignee,
+            footer_icon: issue.typeImage,
+            mrkdwn_in: ['text'],
         }
+
         return object;
     }
 
@@ -114,7 +168,7 @@ NEWSCHEMA('Response').make(function(schema) {
     function buildStatusResponse(modules) {
         var json = {
             text: 'This is status about enabled/disabled bot modules.',
-            attachments: []
+            attachments: [],
         };
         modules.forEach(function (moduleObject) {
             var fields = [];
@@ -157,29 +211,124 @@ NEWSCHEMA('Response').make(function(schema) {
         }
     }
 
-    function buildStandupResponse(options) {
-        var user = options.user;
-        var answers = options.answers;
-
+    function buildStandupResponse(currentUser) {
+        console.log(JSON.stringify(currentUser));
         var json = {
-            text: '<@' + user.slackID + '> reported his standup status from *' + new Date().format('d. MMM yyyy') + '*',
-            attachments: []
+            text: 'Standup report from <@' + currentUser.slackID + '> for *' + new Date().format('d. MMM yyyy') + '*',
+            attachments: [],
+            mrkdwn_in: ['text', 'title']
         };
-        answers.forEach(function(answer) {
-            var color = '#3EB890';
-            if (answers.indexOf(answer) == 1) {
-                color = '#E8A723';
-            } else if (answers.indexOf(answer) == 2) {
-                color = '#E01765';
+
+        currentUser.answers.forEach(function(element) {
+            var color;
+            var icon;
+            var footer;
+            var text = element.answer;
+
+            if (element.issues) {
+                element.issues.forEach(function(issue) {
+                    text = text.replace(issue, '<' + buildIssueLink(issue) + '|' + issue.toUpperCase() + '>');
+                });
+            }
+
+            switch (element.question) {
+                case 'Yesterday - Done':
+                    icon = (element == currentUser.answers.first()) ? currentUser.icon : '';
+                    color = '#12AF5C';
+                    if (element.issues && element.issues.length) {
+                        if (element.incorrect && element.incorrect.length) {
+                            footer = '⚠️ Jira Check: ';
+                            footer += element.incorrect.toString().toUpperCase();
+                            footer += element.incorrect.length == 1 ? ' is not Done' : ' are not done in Jira.';
+                        } else {
+                            footer = '✅ Jira Check: Ok. Issues are Done.';
+                        }
+                    } else {
+                        footer = '👀 No issues mentioned.';
+                    }
+                    break;
+                case 'Yesterday - In Progress':
+                    icon = (element == currentUser.answers.first()) ? currentUser.icon : '';
+                    color = '#E8A723';
+                    if (element.issues && element.issues.length) {
+                        if (element.incorrect && element.incorrect.length) {
+                            footer = '⚠️ Jira Check: ';
+                            footer += element.incorrect.toString().toUpperCase();
+                            footer += element.incorrect.length == 1 ? ' is not In Progress' : ' are not in progress in Jira.';
+                        } else {
+                            footer = '✅ Jira Check: Ok. Issues are In Progress.';
+                        }
+                    } else {
+                        footer = '👀 No issues mentioned.';
+                    }
+                    break;
+                case 'Today':
+                    icon = (element == currentUser.answers.first()) ? currentUser.icon : '';
+                    color = '#217CBA';
+                    if (element.issues && element.issues.length) {
+                        if (element.incorrect && element.incorrect.length) {
+                            footer = '⚠️ Jira Check: ';
+                            footer += element.incorrect.toString().toUpperCase();
+                            footer += element.incorrect.length == 1 ? ' is not assigned to user.' : ' are not assigned to user in Jira.';
+                        } else {
+                        footer = '✅ Jira Check: Ok. Issues are assigned to user.';
+                        }
+                    } else {
+                        footer = '👀 No issues mentioned.';
+                    }
+                    break;
+                case 'Blockers':
+                    icon = (element == currentUser.answers.first()) ? currentUser.icon : '';
+                    color = '#E84F3E';
+                    break;
+                default:
             }
             var object = {
                 color: color,
-                title: answer.question,
-                text: answer.answer,
+                title: element.question,
+                text: text,
+                thumb_url: icon,
+                footer: footer
+                // footer_icon: footer_icon
             }
             json.attachments.push(object);
         });
         console.log('VYSLEDOK', json);
+        return json;
+    }
+
+    function buildStandupReportResponse(checkIn) {
+        var json = {
+            text: 'Team standup summary from *' + new Date().format('d. MMM yyyy') + '*.',
+            attachments: []
+        };
+        var text = '';
+        var participants = 0;
+        var blockers = 0;
+
+        checkIn.users.forEach(function(user) {
+            if (user.answers) {
+                text += '<@' + user.slackID + '> ';
+                participants++;
+            }
+        });
+        text += text ? 'reported status. ' : 'Nobody attended daily standup. ';
+        text += '('+ (participants / checkIn.users.length) * 100 + '%)\n';
+
+        checkIn.users.forEach(function(user) {
+            if (user.blockers) {
+                text += '<@' + user.slackID + '> ';
+                blockers++;
+            }
+        });
+        text += text ? 'reported some blockers. ' : 'Nobody reported blocking issues.';
+        text += '('+ (blockers / checkIn.users.length) * 100 + '%)\n';
+
+        var object = {
+            text: text,
+            color: '#217CBA'
+        }
+        json.attachments.push(object);
         return json;
     }
 });

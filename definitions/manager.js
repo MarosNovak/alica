@@ -17,44 +17,45 @@ slackbot.$workflow('connect', function(err) {
                 return processInit(intent);
             case 'HELP':
                 return processHelp(intent);
-            case 'STATUS':
+            case 'MODULES-STATUS':
                 return processStatus(intent);
-            case 'MODULE':
+            case 'MODULES-ACTIVATION':
                 return processModuleChangeEnable(intent);
             case 'ADMIN':
                 return processModuleAdminRights(intent);
         }
     });
 
-    slackbot.emitter.on('REPORTING', (results, message) => {
+    slackbot.emitter.on('REPORTING', (intent) => {
         console.log('REPORTING EMIT');
         switch(intent.type) {
-            case 'ALL_ISSUES':
-                return processAllIssueInCurrentSprint(message);
-            case 'USER_ISSUES':
-                return processUsersIssues(message);
+            case 'JIRA-SUMMARY':
+                return processIssuesSummary(intent);
+            case 'JIRA-ISSUES':
+                return processSpecificIssues(intent);
+            case 'JIRA-MY-ISSUES':
+                return processMyIssues(intent);
+            case 'JIRA-USER-ISSUES':
+                return processUsersIssues(intent);
+            case 'JIRA-ADD-COMMENT':
+                return processAddComment(intent);
         }
     });
 
-    slackbot.emitter.on('STANDUP', (results, message) => {
+    slackbot.emitter.on('STANDUP', (intent) => {
         console.log('STANDUP EMIT');
         switch(intent.type) {
             case 'START':
-                return processStartDailyStandup(message);
+                return processStartDailyStandup(intent);
             case 'SCHEDULE':
-                return scheduleDailyStandup(message);
+                return scheduleDailyStandup(intent);
             case 'CHANNEL':
-                return processChannelSetup(message);
+                return processChannelSetup(intent);
             case 'USERS':
-                return processUsersInStandup(message);
-        }
-    });
+                return processUsersInStandup(intent);
+            case 'STANDUP-ANSWER':
+                return processUserAnsweredQuestion(intent);
 
-    slackbot.emitter.on('STANDUP_ANSWER', (results, message, conversation) => {
-        console.log('STANDUP ANSWER EMIT');
-        switch (intent.type) {
-            case 'DEFAULT':
-                return processUserAnsweredQuestion(message, conversation);
         }
     });
 });
@@ -199,8 +200,8 @@ function processModuleAdminRights(message) {
     All Jira issues in current sprint
     @param {Object} message received message
 */
-function processAllIssueInCurrentSprint(message) {
-    checkPermission(message, function(permission) {
+function processIssuesSummary(intent) {
+    checkPermission(intent.message, function(permission) {
         if (permission) {
             getModule('reporting', function(err, reportingModule) {
                 if (err) {
@@ -209,7 +210,7 @@ function processAllIssueInCurrentSprint(message) {
                 }
                 if (!reportingModule.enabled) {
                     var answer = { text: 'Module *' + reportingModule.name + '* is disabled.' };
-                    sendBasicAnswerMessage(message, answer);
+                    sendBasicAnswerMessage(intent.message, answer);
                     return;
                 } else {
                     var options = { reportingModule: reportingModule };
@@ -217,12 +218,88 @@ function processAllIssueInCurrentSprint(message) {
                         if (err) {
                             console.log('CHYBA: ', err);
                             var answer = { text: err.message };
-                            sendBasicAnswerMessage(message, answer);
+                            sendBasicAnswerMessage(intent.message, answer);
                             return;
                         }
-                        slackbot.$workflow('reply', { message, response }, function() {
+                        slackbot.$workflow('reply', { message: intent.message, response }, function() {
                             console.log('ODOSLANE');
                             return;
+                        });
+                    });
+                }
+            });
+        }
+    });
+}
+
+/**
+    All Jira issues in current sprint
+    @param {Object} message received message
+*/
+function processSpecificIssues(intent) {
+    checkPermission(intent.message, function(permission) {
+        if (permission) {
+            getModule('reporting', function(err, reportingModule) {
+                if (err) {
+                    console.log('ERROR');
+                    return;
+                }
+                if (!reportingModule.enabled) {
+                    var answer = { text: 'Module *' + reportingModule.name + '* is disabled.' };
+                    sendBasicAnswerMessage(intent.message, answer);
+                    return;
+                } else {
+                    var options = { reportingModule: reportingModule };
+                    Report.operation('getSpecificIssues', intent.parameters.issues, function(err, response) {
+                        if (err) {
+                            console.log('CHYBA: ', err);
+                            var answer = { text: err.message };
+                            sendBasicAnswerMessage(intent.message, answer);
+                            return;
+                        }
+                        slackbot.$workflow('reply', { message: intent.message, response }, function() {
+                            console.log('ODOSLANE');
+                            return;
+                        });
+                    });
+                }
+            });
+        }
+    });
+}
+
+/**
+    All Jira issues in current sprint
+    @param {Object} message received message
+*/
+function processMyIssues(intent) {
+    checkPermission(intent.message, function(permission) {
+        if (permission) {
+            getModule('reporting', function(err, reportingModule) {
+                if (err) {
+                    console.log('ERROR');
+                    return;
+                }
+                if (!reportingModule.enabled) {
+                    var answer = { text: 'Module *' + reportingModule.name + '* is disabled.' };
+                    sendBasicAnswerMessage(intent.message, answer);
+                    return;
+                } else {
+                    User.get({ filter : { slackID: intent.message.user }}, function (error, user) {
+                        if (error) {
+                            console.log('ERROR' , error);
+                            return;
+                        }
+                        console.log('USERS MAIL', user.email);
+                        var options = { email: user.email };
+                        Report.operation('getUsersIssues', options, function(err, response) {
+                            if (err) {
+                                console.log('CHYBA: ', err);
+                                return;
+                            }
+                            slackbot.$workflow('reply', { message: intent.message, response }, function() {
+                                return;
+                            });
                         });
                     });
                 }
@@ -235,8 +312,8 @@ function processAllIssueInCurrentSprint(message) {
     All User's issues assigned - ToDo, In progress
     @param {Object} message received message
 */
-function processUsersIssues(message) {
-    checkPermission(message, function(permission) {
+function processUsersIssues(intent) {
+    checkPermission(intent.message, function(permission) {
         if (permission) {
             getModule('reporting', function(err, reportingModule) {
                 if (err) {
@@ -245,35 +322,77 @@ function processUsersIssues(message) {
                 }
                 if (!reportingModule.enabled) {
                     var answer = { text: 'Module *' + reportingModule.name + '* is disabled.' };
-                    sendBasicAnswerMessage(message, answer);
+                    sendBasicAnswerMessage(intent.message, answer);
                     return;
                 } else {
-                    if (message.text.includes('<@')) {
-                        var regex = new RegExp('<@(.*)>');
-
-                        var filter = {
-                            filter : { slackID: message.text.match(regex)[1] }
-                        };
-                        User.get(filter, function (error, user) {
-                            if (error) {
-                                console.log('ERROR' , error);
+                    User.get({ filter : { slackID: intent.parameters.user }}, function (error, user) {
+                        if (error) {
+                            console.log('ERROR' , error);
+                            return;
+                        }
+                        var options = { email: user.email };
+                        Report.operation('getUsersIssues', options, function(err, response) {
+                            if (err) {
+                                console.log('CHYBA: ', err);
                                 return;
                             }
-                            var options = { email: user.email };
-                            Report.operation('getUsersIssues', options, function(err, response) {
-                                if (err) {
-                                    console.log('CHYBA: ', err);
-                                    return;
-                                }
-                                slackbot.$workflow('reply', { message, response }, function() {
-                                    return;
-                                });
+                            slackbot.$workflow('reply', { message: intent.message, response }, function() {
+                                return;
                             });
                         });
-                    }
+                    });
                 }
             });
         }
+    });
+}
+
+/**
+    Add comment to issue
+    @param {Object} message received message
+*/
+function processAddComment(intent) {
+    var comment = intent.parameters.comment;
+    var issue = intent.parameters.issue;
+
+    getModule('reporting', function(err, reportingModule) {
+        if (err) {
+            console.log('ERROR');
+            return;
+        }
+        if (!reportingModule.enabled) {
+            var answer = { text: 'Module *' + reportingModule.name + '* is disabled.' };
+            sendBasicAnswerMessage(intent.message, answer);
+            return;
+        } else {
+            var options = { issue, comment };
+            Report.operation('addComment', options, function(err, response) {
+                if (err) {
+                    console.log('CHYBA: ', err);
+                    return;
+                }
+                slackbot.$workflow('reply', { message: intent.message, response }, function() {
+                    return;
+                });
+            });
+        }
+    });
+}
+
+/**
+    @param {Object} message received message
+*/
+function processAssignIssue(intent) {
+    const options = { issueID: 'FR-666', comment: 'prvy comment' }
+
+    Report.operation('addComment', options, function(err, response) {
+        if (err) {
+            console.log('CHYBA: ', err);
+            return;
+        }
+        // slackbot.$workflow('reply', { message: intent.message, response }, function() {
+        //     return;
+        // });
     });
 }
 
@@ -285,8 +404,8 @@ function processUsersIssues(message) {
     Start Daily standup
     @param {Object} message received message
 */
-function processStartDailyStandup(message) {
-    checkPermission(message, function(permission) {
+function processStartDailyStandup(intent) {
+    checkPermission(intent.message, function(permission) {
         if (permission) {
             var self = this;
             getModule('standup', function(err, standupModule) {
@@ -296,7 +415,7 @@ function processStartDailyStandup(message) {
                 }
                 if (!standupModule.enabled) {
                     var answer = { text: 'Module *' + standupModule.name + '* is disabled.' };
-                    sendBasicAnswerMessage(message, answer);
+                    sendBasicAnswerMessage(intent.message, answer);
                     return;
                 } else {
                     var options = { users: standupModule.content.users };
@@ -322,30 +441,45 @@ function processStartDailyStandup(message) {
     @param {Object} message received message
     @param {Object} conversation conversation with slack member
 */
-function processUserAnsweredQuestion(message, conversation) {
+function processUserAnsweredQuestion(intent) {
     var self = this;
-    self.standup.$workflow('processQuestion', { conversation, message }, function (error, response) {
-        if (response.standupCanceled) {
-            self.standup = null;
-            return;
-        }
-        if (response.userFinished) {
-            getUser(message.user, function(error, user) {
-                console.log('USER PARSED', user);
-                self.standup.$workflow('userFinishedStandup', user, function(error, message) {
-                    if (error) {
-                        console.log('ERROR', error);
-                        return;
-                    }
-                    slackbot.$workflow('postMessage', message);
-                });
-            });
-            if (response.standupFinished) {
-
+    getUser(intent.message.user, function(error, user) {
+        intent.user = user;
+        self.standup.$workflow('processQuestion', intent, function (error, response) {
+            if (response.standupCanceled) {
+                console.log('CANCELED');
+                self.standup = null;
+                return;
             }
-        } else {
-            slackbot.$workflow('askQuestion', { conversation: conversation, question: response.textMessage });
-        }
+            if (response.standupFinished) {
+                User.query(filter = { filter : { admin: true } }, function(err, users) {
+
+                });
+
+                self.standup.$workflow('standupEnded', function(error, message) {
+                    User.query(filter = { filter : { admin: true } }, function(err, users) {
+                        users.forEach(function (user) {
+                            message.channel = user.slackID;
+                            slackbot.$workflow('postMessage', message);
+                        });
+                    });
+                });
+            }
+            if (response.currentUser.finished) {
+                getUser(currentUser.slackID, function(error, user) {
+                    currentUser.icon = user.icon;
+                    self.standup.$workflow('userFinishedStandup', currentUser, function(error, message) {
+                        if (error) {
+                            console.log('ERROR', error);
+                            return;
+                        }
+                        slackbot.$workflow('postMessage', message);
+                    });
+                });
+            } else {
+                slackbot.$workflow('askQuestion', { conversation: intent.conversation, question: response.textMessage });
+            }
+        });
     });
 }
 
@@ -528,6 +662,7 @@ function formatNonBotMember(member) {
         firstName: member.profile.first_name,
         lastName: member.profile.last_name,
         email: member.profile.email,
+        icon: member.profile.image_72,
         admin: false,
         superadmin: false
     };

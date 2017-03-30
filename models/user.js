@@ -7,7 +7,33 @@ NEWSCHEMA('User').make(function (schema) {
     schema.define('lastName', 'String', '*update');
     schema.define('email','String', '*update');
     schema.define('admin', 'Boolean', '*update');
+    schema.define('icon', 'String', '*update');
     schema.define('superadmin', 'Boolean', '*update');
+
+    schema.setQuery(function (error, options, callback) {
+        usersDB.find().make(function(builder) {
+            if (options.filter) {
+                builder.and();
+                Object.keys(options.filter).forEach(function (key) {
+                    builder.where(key, options.filter[key]);
+                });
+                builder.end();
+            }
+            builder.callback(function (error, response) {
+                if (error) {
+                    return callback(error);
+                }
+                if (Array.isArray(response)) {
+                    response = response.map(function (object) {
+                        return schema.make(object);
+                    });
+                } else if (response) {
+                    response = schema.make(response);
+                }
+                return callback(null, response);
+            });
+        });
+    });
 
     schema.setGet(function(error, model, options, callback) {
         NOSQL('users').find().make(function(builder) {
