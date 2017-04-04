@@ -31,7 +31,7 @@ NEWSCHEMA('Bot').make(function(schema) {
             }
         );
 
-        model.bot = model.slack.spawn().startRTM();
+
 
         model.slack.setupWebserver(3000, function(err,webserver) {
             model.slack.createWebhookEndpoints(model.slack.webserver);
@@ -49,6 +49,13 @@ NEWSCHEMA('Bot').make(function(schema) {
 
         model.slack.on('interactive_message_callback', function(bot, message) {
             console.log('RECEIVED MESSAGE', message);
+        });
+
+
+        model.slack.on('create_bot',function(bot,config) {
+            model.bot = bot;
+            console.log('INITIALIZED BOT');
+            bot.startRTM();
         });
 
         model.slack.on('direct_message', function(bot, message) {
