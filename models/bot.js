@@ -23,15 +23,13 @@ NEWSCHEMA('Bot').make(function(schema) {
     schema.addWorkflow('connect', function(error, model, options, callback) {
 
         model.slack = BotKit.slackbot({
-            // debug: true
-        }).configureSlackApp ({
-                clientId: process.env.CLIENT_ID,
-                clientSecret: process.env.CLIENT_SECRET,
-                scopes: ['bot'],
-            }
-        );
-
-
+            clientId: process.env.CLIENT_ID,
+            clientSecret: process.env.CLIENT_SECRET,
+            scopes: ['bot'],
+        });
+        model.bot = model.slack.spawn({
+            token: process.env.SLACK_API_KEY
+        }).startRTM();
 
         model.slack.setupWebserver(3000, function(err,webserver) {
             model.slack.createWebhookEndpoints(model.slack.webserver);
@@ -47,16 +45,9 @@ NEWSCHEMA('Bot').make(function(schema) {
 
         model.parser.operation('initAnalyzer');
 
-        model.slack.on('interactive_message_callback', function(bot, message) {
-            console.log('RECEIVED MESSAGE', message);
-        });
-
-
-        model.slack.on('create_bot',function(bot,config) {
-            model.bot = bot;
-            console.log('INITIALIZED BOT');
-            bot.startRTM();
-        });
+        // model.slack.on('interactive_message_callback', function(bot, message) {
+        //     console.log('RECEIVED MESSAGE', message);
+        // });
 
         model.slack.on('direct_message', function(bot, message) {
             model.parser.operation('parseMessage', message, function(err, intent) {
