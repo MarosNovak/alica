@@ -36,8 +36,7 @@ NEWSCHEMA('Bot').make(function(schema) {
 
         model.parser.operation('initAnalyzer');
 
-
-        controller.on('interactive_message_callback', function(bot, message) {
+        model.slack.on('interactive_message_callback', function(bot, message) {
             console.log('RECEIVED MESSAGE', message);
         });
 
