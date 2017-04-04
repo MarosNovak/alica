@@ -55,9 +55,15 @@ slackbot.$workflow('connect', function(err) {
                 return processUsersInStandup(intent);
             case 'STANDUP-ANSWER':
                 return processUserAnsweredQuestion(intent);
-
         }
     });
+
+    // slackbot.emitter.on('PLANNING', (intent) => {
+    //     console.log('PLANNING EMIT');
+    //     switch(intent.type) {
+    //         case ''
+    //     }
+    // });
 });
 
 // ****************************************************************************

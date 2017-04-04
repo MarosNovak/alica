@@ -15,7 +15,7 @@ NEWSCHEMA('Jira').make(function(schema) {
         return new JiraApi({
             protocol: process.env.PROTOCOL,
             host: process.env.HOST,
-            port: process.env.PORT,
+            port: process.env.PORT || 8080,
             username: process.env.USERNAME,
             password: process.env.PASSWORD,
             strictSSL: false,

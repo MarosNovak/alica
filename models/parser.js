@@ -41,7 +41,10 @@ NEWSCHEMA('Parser').make(function(schema) {
             skipped: false,
             message: message,
             conversation: null,
-            parameters: null,
+            parameters: {
+                issues: [],
+                answerType: 'Unknown'
+            },
             ignored: false
         };
 
@@ -65,7 +68,11 @@ NEWSCHEMA('Parser').make(function(schema) {
         });
 
         request.on('response', function(response) {
-            intent.parameters = response.result.parameters;
+            if (response.result.metadata.intentName == 'STANDUP-ANSWER') {
+                intent.parameters = response.result.parameters;
+            }
+            intent.parameters.issues = validateIssuesKeys(message.text);
+
             console.log(intent);
             return callback(intent);
         });
@@ -110,5 +117,10 @@ NEWSCHEMA('Parser').make(function(schema) {
             console.log(error);
         });
         request.end();
+    }
+
+    function validateIssuesKeys(text) {
+        var regex = /fr-(\d*)/g;
+        return text.toLowerCase().match(regex);
     }
 });

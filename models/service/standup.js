@@ -95,7 +95,7 @@ NEWSCHEMA('Standup').make(function(schema) {
         }
 
         if (message.question == model.questions[0]) {
-            if (intent.parameters && intent.parameters.issues) {
+            if (intent.parameters && intent.parameters.issues.length) {
                 analyzeFirstAnswer(intent, model.contextIssues, function(answer, notDone) {
                     currentUser.answers.push({
                         question: 'Yesterday - Done',
@@ -123,7 +123,7 @@ NEWSCHEMA('Standup').make(function(schema) {
         }
 
         if (message.question.includes(model.questions[1])) {
-            if (intent.parameters && intent.parameters.issues) {
+            if (intent.parameters && intent.parameters.issues.length) {
                 analyzeSecondAnswer(intent, model.contextIssues, function(answer, notInProgress) {
                     currentUser.answers.push({
                         question: 'Yesterday - In Progress',
@@ -152,7 +152,7 @@ NEWSCHEMA('Standup').make(function(schema) {
         }
 
         if (message.question.includes(model.questions[2])) {
-            if (intent.parameters && intent.parameters.issues) {
+            if (intent.parameters && intent.parameters.issues.length) {
                 analyzeThirdAnswer(intent, model.contextIssues, function(answer, notAssigned) {
                     currentUser.answers.push({
                         question: 'Today',
