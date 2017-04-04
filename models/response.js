@@ -167,39 +167,77 @@ NEWSCHEMA('Response').make(function(schema) {
 
     function buildStatusResponse(modules) {
         var json = {
-            text: 'This is status about enabled/disabled bot modules.',
-            attachments: [],
-        };
-        modules.forEach(function (moduleObject) {
-            var fields = [];
-            if (moduleObject.name == 'standup') {
-                var users = '';
-                moduleObject.content.users.forEach(function(user) {
-                    users += '<@' + user.slackID + '> ';
-                });
-                fields = [{
-                    title: 'Output Channel',
-                    value: '<#' + moduleObject.content.channel + '>',
-                    short: true
-                }, {
-                    title: 'Repeating at',
-                    value: moduleObject.content.scheduledTime,
-                    short: true
-                }, {
-                    title: 'Members',
-                    value: users != '' ? users : 'None',
-                    short: false
-                }]
+            attachments:[
+            {
+                title: 'Do you want to interact with my buttons?',
+                callback_id: '123',
+                attachment_type: 'default',
+                actions: [
+                    {
+                        "name":"yes",
+                        "text": "Yes",
+                        "value": "yes",
+                        "type": "button",
+                    },
+                    {
+                        "name":"no",
+                        "text": "No",
+                        "value": "no",
+                        "type": "button",
+                    }
+                ]
             }
+        ]
+    }
+        //     text: 'This is status about enabled/disabled bot modules.',
+        //     attachments: [],
+        //     actions: [
+        //             {
+        //                 "name":"yes",
+        //                 "text": "Yes",
+        //                 "value": "yes",
+        //                 "type": "button",
+        //             },
+        //             {
+        //                 "name":"no",
+        //                 "text": "No",
+        //                 "value": "no",
+        //                 "type": "button",
+        //             }
+        //         ]
+        // };
+        // modules.forEach(function (moduleObject) {
+        //     var fields = [];
+        //     if (moduleObject.name == 'standup') {
+        //         var users = '';
+        //         moduleObject.content.users.forEach(function(user) {
+        //             users += '<@' + user.slackID + '> ';
+        //         });
+        //         fields = [{
+        //             title: 'Output Channel',
+        //             value: '<#' + moduleObject.content.channel + '>',
+        //             short: true
+        //         }, {
+        //             title: 'Repeating at',
+        //             value: moduleObject.content.scheduledTime,
+        //             short: true
+        //         }, {
+        //             title: 'Members',
+        //             value: users != '' ? users : 'None',
+        //             short: false
+        //         }]
+        //     }
+        //
+        //     var object = {
+        //         title: moduleObject.name,
+        //         text: moduleObject.description,
+        //         color: moduleObject.enabled == true ? 'good' : '#DE0416',
+        //         fields: fields
+        //     }
+        //     json.attachments.push(object);
+        // });
 
-            var object = {
-                title: moduleObject.name,
-                text: moduleObject.description,
-                color: moduleObject.enabled == true ? 'good' : '#DE0416',
-                fields: fields
-            }
-            json.attachments.push(object);
-        });
+
         return json;
     }
 
