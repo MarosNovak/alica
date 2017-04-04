@@ -31,9 +31,7 @@ NEWSCHEMA('Bot').make(function(schema) {
             }
         );
 
-        model.bot = model.slack.spawn({
-            token: process.env.SLACK_API_KEY
-        }).startRTM();
+        model.bot = model.slack.spawn().startRTM();
 
         model.slack.setupWebserver(3000, function(err,webserver) {
             model.slack.createWebhookEndpoints(model.slack.webserver);
