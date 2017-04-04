@@ -17,7 +17,7 @@
     "total.js": "2.3.0"
   },
   "scripts": {
-    "start": "node debug.js"
+    "start": "node release.js"
   },
   "author": {
     "name": "Maros Novak",
