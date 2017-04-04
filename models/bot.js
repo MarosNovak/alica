@@ -34,20 +34,20 @@ NEWSCHEMA('Bot').make(function(schema) {
         model.slack.setupWebserver(3000, function(err,webserver) {
             model.slack.createWebhookEndpoints(model.slack.webserver);
 
-            model.slack.createOauthEndpoints(model.slack.webserver,function(err,req,res) {
-                if (err) {
-                    res.status(500).send('ERROR: ' + err);
-                } else {
-                    res.send('Success!');
-                }
+            model.slack.createOauthEndpoints(model.slack.webserver, function(err,req,res) {
+                // if (err) {
+                //     res.status(500).send('ERROR: ' + err);
+                // } else {
+                //     res.send('Success!');
+                // }
             });
         });
 
         model.parser.operation('initAnalyzer');
 
-        // model.slack.on('interactive_message_callback', function(bot, message) {
-        //     console.log('RECEIVED MESSAGE', message);
-        // });
+        model.slack.on('interactive_message_callback', function(bot, message) {
+            console.log('RECEIVED MESSAGE', message);
+        });
 
         model.slack.on('direct_message', function(bot, message) {
             model.parser.operation('parseMessage', message, function(err, intent) {
