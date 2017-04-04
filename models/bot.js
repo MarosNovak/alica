@@ -30,15 +30,15 @@ NEWSCHEMA('Bot').make(function(schema) {
             token: process.env.SLACK_API_KEY
         }).startRTM();
 
-        model.slack.setupWebserver(3000, function(err,webserver) {
-            model.slack.createWebhookEndpoints(model.slack.webserver);
-        });
+        // model.slack.setupWebserver(3000, function(err,webserver) {
+        //     model.slack.createWebhookEndpoints(model.slack.webserver);
+        // });
 
         model.parser.operation('initAnalyzer');
 
-        model.slack.on('interactive_message_callback', function(bot, message) {
-            console.log('RECEIVED MESSAGE', message);
-        });
+        // model.slack.on('interactive_message_callback', function(bot, message) {
+        //     console.log('RECEIVED MESSAGE', message);
+        // });
 
         model.slack.on('direct_message', function(bot, message) {
             model.parser.operation('parseMessage', message, function(err, intent) {
