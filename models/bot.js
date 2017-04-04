@@ -24,7 +24,12 @@ NEWSCHEMA('Bot').make(function(schema) {
 
         model.slack = BotKit.slackbot({
             // debug: true
-        });
+        }).configureSlackApp ({
+                clientId: process.env.CLIENT_ID,
+                clientSecret: process.env.CLIENT_SECRET,
+                scopes: ['bot'],
+            }
+        );
 
         model.bot = model.slack.spawn({
             token: process.env.SLACK_API_KEY
