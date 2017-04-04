@@ -30,7 +30,16 @@ NEWSCHEMA('Bot').make(function(schema) {
             token: process.env.SLACK_API_KEY
         }).startRTM();
 
+        model.slack.setupWebserver(process.env.port,function(err,webserver) {
+            model.slack.createWebhookEndpoints(model.slack.webserver);
+        });
+
         model.parser.operation('initAnalyzer');
+
+
+        controller.on('interactive_message_callback', function(bot, message) {
+            console.log('RECEIVED MESSAGE', message);
+        });
 
         model.slack.on('direct_message', function(bot, message) {
             model.parser.operation('parseMessage', message, function(err, intent) {
