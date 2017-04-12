@@ -22,13 +22,6 @@ NEWSCHEMA('Jira').make(function(schema) {
         });
     }
 
-    schema.addWorkflow('getIssue', function(error, model, issueKey, callback) {
-        console.log('NACITAVAM JIRU');
-        model.jira.findIssue(issueKey).then(function(response) {
-            return callback(parseContextIssue(response));
-        });
-    });
-
     /**
      * Get last sprint issues
      * @param {Object} options { rapidView }
@@ -47,11 +40,11 @@ NEWSCHEMA('Jira').make(function(schema) {
                     console.log(JSON.stringify(issues));
                     console.log('NACITANA JIRA');
                     if (issues && issues.contents) {
-                        var jsonResponse = [];
+                        var jsonResponder = [];
                         issues.contents.issuesNotCompletedInCurrentSprint.forEach(function(issue) {
-                            jsonResponse.push(parseIssue(issue));
+                            jsonResponder.push(parseIssue(issue));
                         });
-                        return callback(jsonResponse);
+                        return callback(jsonResponder);
                     } else {
                         error.push('Issues not found.');
                         return callback();
@@ -77,18 +70,18 @@ NEWSCHEMA('Jira').make(function(schema) {
             return callback();
         }
         console.log('NACITAVAM JIRA');
-        model.jira.getUsersIssues(email, true).then(function (jiraResponse) {
+        model.jira.getUsersIssues(email, true).then(function (jiraResponder) {
             console.log('NACITANA JIRA');
-            console.log('JIRA POLE', jiraResponse);
-            var jsonResponse;
-            if (jiraResponse.total > 0 && Array.isArray(jiraResponse.issues)) {
-                jsonResponse = jiraResponse.issues.map(issue => parseExpandedListIssue(issue));
-            } else if (jiraResponse.total == 1) {
-                jsonResponse = [parseExpandedListIssue(jiraResponse)];
+            console.log('JIRA POLE', jiraResponder);
+            var jsonResponder;
+            if (jiraResponder.total > 0 && Array.isArray(jiraResponder.issues)) {
+                jsonResponder = jiraResponder.issues.map(issue => parseExpandedListIssue(issue));
+            } else if (jiraResponder.total == 1) {
+                jsonResponder = [parseExpandedListIssue(jiraResponder)];
             } else {
-                jsonResponse = { error: 'No issues found.' };
+                jsonResponder = { error: 'No issues found.' };
             }
-            return callback(jsonResponse);
+            return callback(jsonResponder);
         }).catch(function(err) {
             console.log('JIRA ERROR');
             error.push(err.message);
@@ -103,17 +96,16 @@ NEWSCHEMA('Jira').make(function(schema) {
     schema.addWorkflow('getIssues', function (error, model, issues, callback) {
         console.log('NACITAVAM JIRA');
         if (issues.length == 1) {
-            model.jira.findIssue(issues.pop(), true).then(function (jiraResponse) {
-                console.log(jiraResponse);
-                return callback(parseExpandedDetailIssue(jiraResponse))
+            model.jira.findIssue(issues.pop(), true).then(function (jiraResponder) {
+                return callback(parseExpandedDetailIssue(jiraResponder))
             });
         } else {
             var responseIssues = [];
             var count = 0;
             issues.forEach(function(issue) {
-                model.jira.findIssue(issue, true).then(function (jiraResponse) {
+                model.jira.findIssue(issue, true).then(function (jiraResponder) {
                     count++;
-                    responseIssues.push(parseExpandedListIssue(jiraResponse));
+                    responseIssues.push(parseExpandedListIssue(jiraResponder));
                     if (count == issues.length) {
                         return callback(responseIssues);
                     }
@@ -155,6 +147,13 @@ NEWSCHEMA('Jira').make(function(schema) {
         });
     });
 
+    schema.addWorkflow('getIssue', function(error, model, issueKey, callback) {
+        console.log('NACITAVAM JIRU');
+        model.jira.findIssue(issueKey).then(function(response) {
+            return callback(parseContextIssue(response));
+        });
+    });
+
     schema.addWorkflow('getContextIssues', function(error, model, options, callback) {
         var contextIssues = [];
         model.jira.searchJira(contextJQL).then(function(response) {
@@ -166,6 +165,7 @@ NEWSCHEMA('Jira').make(function(schema) {
             return callback(contextIssues);
         });
     });
+
 
     /**
      * Get normalized parsed Jira issue

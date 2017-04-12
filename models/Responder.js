@@ -1,47 +1,55 @@
-NEWSCHEMA('Response').make(function(schema) {
+NEWSCHEMA('Responder').make(function(schema) {
 
-    schema.addOperation('statusResponse', function (error, model, modules, callback) {
-        return callback(buildStatusResponse(modules));
+    schema.addOperation('statusResponder', function (error, model, modules, callback) {
+        return callback(buildStatusResponder(modules));
     });
 
-    schema.addOperation('helpResponse', function (error, model, options, callback) {
+    schema.addOperation('helpResponder', function (error, model, options, callback) {
         return callback(buildHelp());
     });
 
-    schema.addOperation('issuesResponse', function(error, model, issues, callback) {
-        return callback(buildResponseIssues(issues));
+    schema.addOperation('issuesResponder', function(error, model, issues, callback) {
+        return callback(buildResponderIssues(issues));
     });
 
-    schema.addOperation('issueDetailResponse', function(error, model, issue, callback) {
+    schema.addOperation('issueDetailResponder', function(error, model, issue, callback) {
         return callback(buildIssueDetail(issue));
     });
 
-    schema.addOperation('enableModuleResponse', function (error, model, options, callback) {
-        return callback(buildEnableModuleResponse(options));
+    schema.addOperation('enableModuleResponder', function (error, model, options, callback) {
+        return callback(buildEnableModuleResponder(options));
     });
 
-    schema.addOperation('basicResponse', function (error, model, message, callback) {
-        return callback(buildBasicResponse(message));
+    schema.addOperation('basicResponder', function (error, model, message, callback) {
+        return callback(buildBasicResponder(message));
     });
 
-    schema.addOperation('usersIssuesResponse', function (error, model, usersIssues, callback) {
-        return callback(buildResponseIssues(usersIssues));
+    schema.addOperation('usersIssuesResponder', function (error, model, usersIssues, callback) {
+        return callback(buildResponderIssues(usersIssues));
     });
 
-    schema.addOperation('addedCommentResponse', function (error, model, options, callback) {
-        return callback(buildAddedCommentResponse(options));
+    schema.addOperation('addedCommentResponder', function (error, model, options, callback) {
+        return callback(buildAddedCommentResponder(options));
     });
 
-    schema.addOperation('standupReportResponse', function (error, model, checkIn, callback) {
-        return callback(buildStandupReportResponse(checkIn));
+    schema.addOperation('standupMonitoringResponder', function (error, model, checkIn, callback) {
+        return callback(buildStandupMonitoringResponder(checkIn));
+    });
+
+    schema.addOperation('votingResponder', function (error, model, issue, callback) {
+        return callback(buildVotingResponder(issue));
+    });
+
+    schema.addOperation('votingResultsReponder', function (error, model, votingResults, callback) {
+        return callback(buildVotingResultsResponder(votingResults));
     });
 
     /**
      * Build USer's daily standup response from answers
      * @param {Object} options - { user, answers }
      */
-    schema.addOperation('userStandupAnswerResponse', function (error, model, currentUser, callback) {
-        return callback(buildStandupResponse(currentUser));
+    schema.addOperation('userStandupAnswerResponder', function (error, model, currentUser, callback) {
+        return callback(buildStandupResponder(currentUser));
     });
 
     function buildIssueDetail(issue) {
@@ -82,7 +90,7 @@ NEWSCHEMA('Response').make(function(schema) {
         return json;
     }
 
-    function buildResponseIssues(issues) {
+    function buildResponderIssues(issues) {
         var self = this;
         var json = {
             text: 'Showing ' + issues.length + ' issues returned from Jira.',
@@ -113,7 +121,7 @@ NEWSCHEMA('Response').make(function(schema) {
         }
     }
 
-    function buildAddedCommentResponse(options) {
+    function buildAddedCommentResponder(options) {
         var json = {
             text: 'Comment added to issue <' + buildIssueLink(options.issue) + '|' + options.issue + '> :v: ```'+ options.comment +'```'
         };
@@ -142,7 +150,7 @@ NEWSCHEMA('Response').make(function(schema) {
         var title = 'This is a few commands I understand:\n\n';
         var general = '*_General Commands_*\n';
         var status = '`status` give you current modules status.\n';
-        var enableModule =  '`enable {module}` will activate module: _standup_, _monitoring_, _reporting_.\n';
+        var enableModule =  '`enable {module}` will activate module: _standup_, _monitoring_, _Monitoring_.\n';
         var disableModule = '`disable {module}` stop module.\n';
         var help = '`help` for this wondeful and useful list.\n';
         var admin = '`admin {@users}` will set rights for various commands.\n\n'
@@ -154,94 +162,58 @@ NEWSCHEMA('Response').make(function(schema) {
         var add = '`standup add {@users}` to invite users for daily standup.\n\n';
         var monitoring = '*_Monitoring_*\n';
         var monitor = '`monitor` will automatically start tracking current sprint and notify about any problem.\n\n';
-        var reporting = '*_Reporting_*\n';
+        var Monitoring = '*_Monitoring_*\n';
         var issues = '`sprint issues` provide list of issues in current sprint.\n';
         var users = '`@user -i` provide list of assigned issues.\n';
         var issue = '`{Issue number} progress` progress about specific issue.';
 
         var json = {
-            text: title + general + status + enableModule + disableModule + help + admin + standup + startStandup + cancel + schedule + nope + add + monitoring + monitor + reporting + issues + users + issue
+            text: title + general + status + enableModule + disableModule + help + admin + standup + startStandup + cancel + schedule + nope + add + monitoring + monitor + Monitoring + issues + users + issue
         };
         return json;
     }
 
-    function buildStatusResponse(modules) {
+    function buildStatusResponder(modules) {
         var json = {
-            attachments:[
-            {
-                title: 'Do you want to interact with my buttons?',
-                callback_id: '123',
-                attachment_type: 'default',
-                actions: [
-                    {
-                        "name":"yes",
-                        "text": "Yes",
-                        "value": "yes",
-                        "type": "button",
-                    },
-                    {
-                        "name":"no",
-                        "text": "No",
-                        "value": "no",
-                        "type": "button",
-                    }
-                ]
+            text: 'This is status about enabled/disabled bot modules.',
+            attachments: [],
+        };
+        modules.forEach(function (moduleObject) {
+            var fields = [];
+            if (moduleObject.name == 'standup') {
+                var users = '';
+                moduleObject.content.users.forEach(function(user) {
+                    users += '<@' + user.slackID + '> ';
+                });
+                fields = [{
+                    title: 'Output Channel',
+                    value: '<#' + moduleObject.content.channel + '>',
+                    short: true
+                }, {
+                    title: 'Repeating at',
+                    value: moduleObject.content.scheduledTime,
+                    short: true
+                }, {
+                    title: 'Members',
+                    value: users != '' ? users : 'None',
+                    short: false
+                }]
             }
-        ]
-    }
-        //     text: 'This is status about enabled/disabled bot modules.',
-        //     attachments: [],
-        //     actions: [
-        //             {
-        //                 "name":"yes",
-        //                 "text": "Yes",
-        //                 "value": "yes",
-        //                 "type": "button",
-        //             },
-        //             {
-        //                 "name":"no",
-        //                 "text": "No",
-        //                 "value": "no",
-        //                 "type": "button",
-        //             }
-        //         ]
-        // };
-        // modules.forEach(function (moduleObject) {
-        //     var fields = [];
-        //     if (moduleObject.name == 'standup') {
-        //         var users = '';
-        //         moduleObject.content.users.forEach(function(user) {
-        //             users += '<@' + user.slackID + '> ';
-        //         });
-        //         fields = [{
-        //             title: 'Output Channel',
-        //             value: '<#' + moduleObject.content.channel + '>',
-        //             short: true
-        //         }, {
-        //             title: 'Repeating at',
-        //             value: moduleObject.content.scheduledTime,
-        //             short: true
-        //         }, {
-        //             title: 'Members',
-        //             value: users != '' ? users : 'None',
-        //             short: false
-        //         }]
-        //     }
-        //
-        //     var object = {
-        //         title: moduleObject.name,
-        //         text: moduleObject.description,
-        //         color: moduleObject.enabled == true ? 'good' : '#DE0416',
-        //         fields: fields
-        //     }
-        //     json.attachments.push(object);
-        // });
+
+            var object = {
+                title: moduleObject.name,
+                text: moduleObject.description,
+                color: moduleObject.enabled == true ? 'good' : '#DE0416',
+                fields: fields
+            }
+            json.attachments.push(object);
+        });
 
 
         return json;
     }
 
-    function buildBasicResponse(message) {
+    function buildBasicResponder(message) {
         if (!message) {
             console.log('FAILED BUILD BASIC RESPONSE');
         } else {
@@ -249,10 +221,10 @@ NEWSCHEMA('Response').make(function(schema) {
         }
     }
 
-    function buildStandupResponse(currentUser) {
+    function buildStandupResponder(currentUser) {
         console.log(JSON.stringify(currentUser));
         var json = {
-            text: 'Standup report from <@' + currentUser.slackID + '> for *' + new Date().format('d. MMM yyyy') + '*',
+            text: 'Standup Monitoring from <@' + currentUser.slackID + '> for *' + new Date().format('d. MMM yyyy') + '*',
             attachments: [],
             mrkdwn_in: ['text', 'title']
         };
@@ -335,7 +307,7 @@ NEWSCHEMA('Response').make(function(schema) {
         return json;
     }
 
-    function buildStandupReportResponse(checkIn) {
+    function buildStandupMonitoringResponder(checkIn) {
         var json = {
             text: 'Team standup summary from *' + new Date().format('d. MMM yyyy') + '*.',
             attachments: []
@@ -350,7 +322,7 @@ NEWSCHEMA('Response').make(function(schema) {
                 participants++;
             }
         });
-        text += text ? 'reported status. ' : 'Nobody attended daily standup. ';
+        text += text ? 'Monitoringed status. ' : 'Nobody attended daily standup. ';
         text += '('+ (participants / checkIn.users.length) * 100 + '%)\n';
 
         checkIn.users.forEach(function(user) {
@@ -359,7 +331,7 @@ NEWSCHEMA('Response').make(function(schema) {
                 blockers++;
             }
         });
-        text += text ? 'reported some blockers. ' : 'Nobody reported blocking issues.';
+        text += text ? 'Monitoringed some blockers. ' : 'Nobody Monitoringed blocking issues.';
         text += '('+ (blockers / checkIn.users.length) * 100 + '%)\n';
 
         var object = {
@@ -367,6 +339,90 @@ NEWSCHEMA('Response').make(function(schema) {
             color: '#217CBA'
         }
         json.attachments.push(object);
+        return json;
+    }
+
+    function buildVotingResponder(issue) {
+        var json = {
+            text: 'Voting for issue <' + buildIssueLink(issue.key) + '|' + issue.key + '> has been started. Please choose amount of story points.\n *' + issue.title + '*',
+            attachments: [
+                {   text: issue.description,
+                    color: '#217CBA',
+                    author_name: issue.typeName,
+                    author_icon: issue.typeImage,
+                    callback_id: 'VOTE',
+                    actions: [ { name: '0', text: '0', type: 'button', value: 0 }, { name: '1', text: '1', type: 'button', value: 1 }, { name: '2', text: '2', type: 'button', value: 2 }, { name: '3', text: '3', type: 'button', value: 3 }, { name: '5', text: '5', type: 'button', value: 5 }
+                    ]
+                },
+                {   text: '',
+                    color: '#217CBA',
+                    callback_id: 'VOTE',
+                    actions: [ { name: '8', text: '8', type: 'button', value: 8 }, { name: '13', text: '13', type: 'button', value: 13 }, { name: '20', text: '20', type: 'button', value: 20 }, { name: '40', text: '40', type: 'button', value: 40 }, { name: '100', text: '100', type: 'button', value: 100 }
+                    ]
+                },
+                {   text: '',
+                    color: '#217CBA',
+                    callback_id: 'VOTE',
+                    actions: [ { name: '?', text: '?', type: 'button', value: '?' }, { name: 'coffee', text: '☕️', type: 'button', value: 'coffeee' } ]
+                }
+            ]
+        };
+        return json;
+    }
+
+    function buildVotingResultsResponder(votingResults) {
+        console.log('elements', votingResults);
+
+        var min = 101;
+        var max = 0;
+        var maxUser;
+        var minUser;
+        var sum = 0;
+        var allUsers = '';
+
+        votingResults.users.forEach(function(element) {
+            if (element.value > max) {
+                max = parseInt(element.value);
+                maxUser = element.key;
+             }
+            if (element.value < min) {
+                min = parseInt(element.value);
+                minUser = element.key;
+            }
+            allUsers += '`'+ element.value +'` - <@' + element.key + '>\n';
+            sum = sum + parseInt(element.value);
+        });
+
+        console.log('V SUME VOGULE NEZNAM', sum);
+
+        var json = {
+            text: 'Voting has been completed. Here are the results:',
+            attachments: [
+                {
+                    mrkdwn_in: [ "text", "fields" ],
+                    fields: [
+                        {
+                            title: 'Maximum',
+                            value: '*' + max + '* - <@' + maxUser + '>',
+                            short: true
+                        }, {
+                            title: 'Minimum',
+                            value: '*' + min + '* - <@' + minUser + '>',
+                            short: true
+                        }, {
+                            title: 'Average',
+                            value: sum / votingResults.users.length,
+                            short: true
+                        }],
+                    color: '#217CBA'
+                },
+                {
+                    mrkdwn_in: [ "text" ],
+                    text: allUsers,
+                    color: '#217CBA'
+                }
+            ]
+        }
         return json;
     }
 });

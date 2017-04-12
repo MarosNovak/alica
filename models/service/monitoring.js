@@ -1,16 +1,16 @@
 var jira = GETSCHEMA('Jira').make();
-var Response = GETSCHEMA('Response');
+var Responder = GETSCHEMA('Responder');
 
-NEWSCHEMA('Report').make(function(schema) {
+NEWSCHEMA('Monitoring').make(function(schema) {
 
     schema.addOperation('getLastSprintIssues', function(error, model, options, callback) {
-        options = { rapidView: options.reportingModule.projectName };
+        options = { rapidView: options.MonitoringModule.projectName };
         jira.$workflow('getJiraLastSprintIssues', options, function(err, issues) {
             if (err) {
                 console.log('CHYBA: ', err);
                 return callback();
             }
-            Response.operation('issuesResponse', issues, function(err, responseIssues) {
+            Responder.operation('issuesResponder', issues, function(err, responseIssues) {
                 if (err) {
                     console.log('CHYBA: ', err);
                     return callback();
@@ -22,17 +22,17 @@ NEWSCHEMA('Report').make(function(schema) {
 
     schema.addOperation('getUsersIssues', function(error, model, options, callback) {
         options = { email: options.email };
-        jira.$workflow('getUsersIssues', options, function(err, jiraResponse) {
+        jira.$workflow('getUsersIssues', options, function(err, jiraResponder) {
             if (err) {
                 console.log('CHYBA: ', err);
                 return callback();
-            } else if (jiraResponse.error) {
-                Response.operation('basicResponse', { text: jiraResponse.error }, function(err, message) {
+            } else if (jiraResponder.error) {
+                Responder.operation('basicResponder', { text: jiraResponder.error }, function(err, message) {
                     console.log(message);
                     return callback(message);
                 });
             } else {
-                Response.operation('usersIssuesResponse', jiraResponse, function(err, responseIssues) {
+                Responder.operation('usersIssuesResponder', jiraResponder, function(err, responseIssues) {
                     if (err) {
                         console.log('CHYBA: ', err);
                         return callback();
@@ -50,12 +50,12 @@ NEWSCHEMA('Report').make(function(schema) {
                 console.log('CHYBA: ', err);
                 return callback();
             } else if (parsedIssues.error) {
-                Response.operation('basicResponse', { text: parsedIssues.error }, function(err, message) {
+                Responder.operation('basicResponder', { text: parsedIssues.error }, function(err, message) {
                     console.log(message);
                     return callback(message);
                 });
             } else if (Array.isArray(parsedIssues)) {
-                Response.operation('issuesResponse', parsedIssues, function(err, responseIssues) {
+                Responder.operation('issuesResponder', parsedIssues, function(err, responseIssues) {
                     if (err) {
                         console.log('CHYBA: ', err);
                         return callback();
@@ -64,7 +64,7 @@ NEWSCHEMA('Report').make(function(schema) {
                     return callback(responseIssues);
                 });
             } else {
-                Response.operation('issueDetailResponse', parsedIssues, function(err, responseIssues) {
+                Responder.operation('issueDetailResponder', parsedIssues, function(err, responseIssues) {
                     if (err) {
                         console.log('CHYBA: ', err);
                         return callback();
@@ -82,12 +82,12 @@ NEWSCHEMA('Report').make(function(schema) {
                 console.log('CHYBA: ', err);
                 return callback();
             } else if (response.error) {
-                Response.operation('basicResponse', { text: response.error }, function(err, message) {
+                Responder.operation('basicResponder', { text: response.error }, function(err, message) {
                     console.log(message);
                     return callback(message);
                 });
             } else {
-                Response.operation('addedCommentResponse', response, function(err, responseMessage) {
+                Responder.operation('addedCommentResponder', response, function(err, responseMessage) {
                     if (err) {
                         console.log('CHYBA: ', err);
                         return callback();
@@ -105,7 +105,7 @@ NEWSCHEMA('Report').make(function(schema) {
                 console.log('CHYBA: ', err);
                 return callback();
             } else if (parsedIssues.error) {
-                Response.operation('basicResponse', { text: parsedIssues.error }, function(err, message) {
+                Responder.operation('basicResponder', { text: parsedIssues.error }, function(err, message) {
                     console.log(message);
                     return callback(message);
                 });

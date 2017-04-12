@@ -4,6 +4,18 @@ var specialAnswers = ['nothing','none','skip','nope','no'];
 NEWSCHEMA('Parser').make(function(schema) {
     schema.define('analyzer', 'Object');
 
+    /**
+     * Initialization Api.ai webhook connection
+     */
+    schema.addOperation('initAnalyzer', function(error, model, options, callback) {
+        this.analyzer = apiai(process.env.APIAI_KEY);
+    });
+
+    /**
+     * Parse basic message
+     * @param {Object} - message
+     * @return {Object} - intent
+     */
     schema.addOperation('parseMessage', function(error, model, message, callback) {
         if (!message || !message.text) {
             return callback();
@@ -16,7 +28,7 @@ NEWSCHEMA('Parser').make(function(schema) {
                     type: 'INIT',
                     message: message,
                 });
-            case 's':
+            case 'start standup':
                 return callback({
                     module: 'STANDUP',
                     type: 'START',
@@ -29,6 +41,11 @@ NEWSCHEMA('Parser').make(function(schema) {
         });
     });
 
+    /**
+     * Parse standup answer message
+     * @param {Object} - message
+     * @return {Object} - intent
+     */
     schema.addOperation('parseStandupMessage', function (error, model, message, callback) {
         if (!message || !message.text) {
             return callback();
@@ -64,7 +81,7 @@ NEWSCHEMA('Parser').make(function(schema) {
         }
 
         var request = this.analyzer.textRequest(message.text, {
-            sessionId: '1'
+            sessionId: U.random()
         });
 
         request.on('response', function(response) {
@@ -83,22 +100,14 @@ NEWSCHEMA('Parser').make(function(schema) {
         request.end();
     });
 
-// ****************************************************************************
-// MACHINE LEARNING
-// ****************************************************************************
-
-    schema.addOperation('initAnalyzer', function(error, model, options, callback) {
-        this.analyzer = apiai("627b9af1d891422dab3e14717b526e53");
-    });
-
     /**
      * Parse natural language to intents
-     *
+     * @param {Message} {Analyzer}
      */
     function parseMessageToIntent(message, analyzer, callback) {
         var intent = {};
         var request = analyzer.textRequest(message.text, {
-            sessionId: '1'
+            sessionId: U.random()
         });
 
         request.on('response', function(response) {
@@ -107,6 +116,9 @@ NEWSCHEMA('Parser').make(function(schema) {
                 type: response.result.metadata.intentName,
                 message: message,
                 parameters: response.result.parameters
+            }
+            if (intent.parameters.issues) {
+                intent.parameters.issues = validateIssuesKeys(message.text);
             }
 
             console.log('PARSED INTENT:', intent);
@@ -119,6 +131,11 @@ NEWSCHEMA('Parser').make(function(schema) {
         request.end();
     }
 
+    /**
+     * Validation of Jira issue keys
+     * @param {String} text - message text
+     * @return {Array} issueKeys
+     */
     function validateIssuesKeys(text) {
         var regex = /fr-(\d*)/g;
         return text.toLowerCase().match(regex);

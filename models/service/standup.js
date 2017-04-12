@@ -1,8 +1,8 @@
 var jira = GETSCHEMA('Jira').make();
-var Response = GETSCHEMA('Response');
+var Responder = GETSCHEMA('Responder');
 
 NEWSCHEMA('Standup').make(function(schema) {
-    schema.define('checkIn', 'Array');
+    schema.define('Monitorings', 'Array');
     schema.define('questions', 'Array');
     schema.define('conversations', 'Array');
     schema.define('channel', 'String');
@@ -11,11 +11,11 @@ NEWSCHEMA('Standup').make(function(schema) {
     schema.setDefault(function(name) {
         switch(name) {
             case 'questions':
-                return ['What did you accomplish yesterday? Report `done` issues.',
-                        'What you were working on yesterday? Report `in progress` issues.',
+                return ['What did you accomplish yesterday? Monitoring `done` issues.',
+                        'What you were working on yesterday? Monitoring `in progress` issues.',
                         'What are your plans for today?',
                         'What obstacles are impeding your progress?'];
-            case 'checkIn':
+            case 'Monitorings':
                 return {
                     users:[]
                 }
@@ -32,7 +32,7 @@ NEWSCHEMA('Standup').make(function(schema) {
         model.channel = options.standupModule.content.channel;
 
         users.forEach(function(user) {
-            model.checkIn.users.push({
+            model.Monitorings.users.push({
                 slackID: user.slackID,
                 answers: [],
                 finished: false,
@@ -41,7 +41,7 @@ NEWSCHEMA('Standup').make(function(schema) {
             });
         });
 
-        console.log('standup users', model.checkIn);
+        console.log('standup users', model.Monitorings);
         var response = {
             question: model.questions[0],
             users: users
@@ -80,7 +80,7 @@ NEWSCHEMA('Standup').make(function(schema) {
             });
         }
 
-        currentUser = model.checkIn.users.filter(function(user) {
+        currentUser = model.Monitorings.users.filter(function(user) {
             return user.slackID == intent.message.user;
         }).first();
 
@@ -201,11 +201,11 @@ NEWSCHEMA('Standup').make(function(schema) {
     });
 
     /**
-     * User finished standup - calling Response object and parse answers
+     * User finished standup - calling Responder object and parse answers
      * @return {function} callback - { error, response - output message }
      */
     schema.addWorkflow('userFinishedStandup', function(error, model, currentUser, callback) {
-        Response.operation('userStandupAnswerResponse', currentUser, function(error, response) {
+        Responder.operation('userStandupAnswerResponder', currentUser, function(error, response) {
             response.channel = model.channel;
             console.log('RESPONSE', response);
             if (error) {
@@ -217,11 +217,11 @@ NEWSCHEMA('Standup').make(function(schema) {
     });
 
     /**
-     * Daily standup is over. Send Report to HR Manager
+     * Daily standup is over. Send Monitoring to HR Manager
      * @return {function} callback - { error, response - output message }
      */
     schema.addWorkflow('standupEnded', function(error, model, options, callback) {
-        Response.operation('standupReportResponse', model.checkIn, function(error, response) {
+        Responder.operation('standupMonitoringResponder', model.Monitorings, function(error, response) {
             console.log('RESPONSE', response);
             if (error) {
                 console.log('ERROR', error);

@@ -1,5 +1,6 @@
-var Response = GETSCHEMA('Response');
-var Report = GETSCHEMA('Report');
+var Responder = GETSCHEMA('Responder');
+var Monitoring = GETSCHEMA('Monitoring');
+var Planning = GETSCHEMA('Planning').make();
 var Module = GETSCHEMA('Module');
 var User = GETSCHEMA('User');
 var slackbot = GETSCHEMA('Bot').make();
@@ -26,8 +27,8 @@ slackbot.$workflow('connect', function(err) {
         }
     });
 
-    slackbot.emitter.on('REPORTING', (intent) => {
-        console.log('REPORTING EMIT');
+    slackbot.emitter.on('MONITORING', (intent) => {
+        console.log('Monitoring EMIT');
         switch(intent.type) {
             case 'JIRA-SUMMARY':
                 return processIssuesSummary(intent);
@@ -58,12 +59,13 @@ slackbot.$workflow('connect', function(err) {
         }
     });
 
-    // slackbot.emitter.on('PLANNING', (intent) => {
-    //     console.log('PLANNING EMIT');
-    //     switch(intent.type) {
-    //         case ''
-    //     }
-    // });
+    slackbot.emitter.on('PLANNING', (intent) => {
+        console.log('PLANNING EMIT');
+        switch(intent.type) {
+            case 'START-VOTING':
+                return processStartVoting(intent);
+        }
+    });
 });
 
 // ****************************************************************************
@@ -88,11 +90,11 @@ function processInit(message) {
 }
 
 /**
-    Help message from Response
+    Help message from Responder
     @param {Object} message received message form Slack
 */
 function processHelp(intent) {
-    Response.operation('helpResponse', function (err, response) {
+    Responder.operation('helpResponder', function (err, response) {
         if (err) {
             console.log('CHYBA: ', err);
             return;
@@ -106,7 +108,7 @@ function processHelp(intent) {
 }
 
 /**
-    Get help message from Response
+    Get help message from Responder
     @param {Object} message received message form Slack
 */
 function processStatus(intent) {
@@ -115,7 +117,7 @@ function processStatus(intent) {
             console.log('CHYBA PRI GET Z DB', err);
             return;
         }
-        Response.operation('statusResponse', modules, function (err, response) {
+        Responder.operation('statusResponder', modules, function (err, response) {
             if (err) {
                 console.log('CHYBA: ', err);
                 return;
@@ -199,7 +201,7 @@ function processModuleAdminRights(message) {
 }
 
 // ****************************************************************************
-// REPORTING
+// Monitoring
 // ****************************************************************************
 
 /**
@@ -209,18 +211,18 @@ function processModuleAdminRights(message) {
 function processIssuesSummary(intent) {
     checkPermission(intent.message, function(permission) {
         if (permission) {
-            getModule('reporting', function(err, reportingModule) {
+            getModule('Monitoring', function(err, MonitoringModule) {
                 if (err) {
                     console.log('ERROR');
                     return;
                 }
-                if (!reportingModule.enabled) {
-                    var answer = { text: 'Module *' + reportingModule.name + '* is disabled.' };
+                if (!MonitoringModule.enabled) {
+                    var answer = { text: 'Module *' + MonitoringModule.name + '* is disabled.' };
                     sendBasicAnswerMessage(intent.message, answer);
                     return;
                 } else {
-                    var options = { reportingModule: reportingModule };
-                    Report.operation('getLastSprintIssues', options, function(err, response) {
+                    var options = { MonitoringModule: MonitoringModule };
+                    Monitoring.operation('getLastSprintIssues', options, function(err, response) {
                         if (err) {
                             console.log('CHYBA: ', err);
                             var answer = { text: err.message };
@@ -245,18 +247,18 @@ function processIssuesSummary(intent) {
 function processSpecificIssues(intent) {
     checkPermission(intent.message, function(permission) {
         if (permission) {
-            getModule('reporting', function(err, reportingModule) {
+            getModule('Monitoring', function(err, MonitoringModule) {
                 if (err) {
                     console.log('ERROR');
                     return;
                 }
-                if (!reportingModule.enabled) {
-                    var answer = { text: 'Module *' + reportingModule.name + '* is disabled.' };
+                if (!MonitoringModule.enabled) {
+                    var answer = { text: 'Module *' + MonitoringModule.name + '* is disabled.' };
                     sendBasicAnswerMessage(intent.message, answer);
                     return;
                 } else {
-                    var options = { reportingModule: reportingModule };
-                    Report.operation('getSpecificIssues', intent.parameters.issues, function(err, response) {
+                    var options = { MonitoringModule: MonitoringModule };
+                    Monitoring.operation('getSpecificIssues', intent.parameters.issues, function(err, response) {
                         if (err) {
                             console.log('CHYBA: ', err);
                             var answer = { text: err.message };
@@ -281,13 +283,13 @@ function processSpecificIssues(intent) {
 function processMyIssues(intent) {
     checkPermission(intent.message, function(permission) {
         if (permission) {
-            getModule('reporting', function(err, reportingModule) {
+            getModule('Monitoring', function(err, MonitoringModule) {
                 if (err) {
                     console.log('ERROR');
                     return;
                 }
-                if (!reportingModule.enabled) {
-                    var answer = { text: 'Module *' + reportingModule.name + '* is disabled.' };
+                if (!MonitoringModule.enabled) {
+                    var answer = { text: 'Module *' + MonitoringModule.name + '* is disabled.' };
                     sendBasicAnswerMessage(intent.message, answer);
                     return;
                 } else {
@@ -298,7 +300,7 @@ function processMyIssues(intent) {
                         }
                         console.log('USERS MAIL', user.email);
                         var options = { email: user.email };
-                        Report.operation('getUsersIssues', options, function(err, response) {
+                        Monitoring.operation('getUsersIssues', options, function(err, response) {
                             if (err) {
                                 console.log('CHYBA: ', err);
                                 return;
@@ -321,13 +323,13 @@ function processMyIssues(intent) {
 function processUsersIssues(intent) {
     checkPermission(intent.message, function(permission) {
         if (permission) {
-            getModule('reporting', function(err, reportingModule) {
+            getModule('Monitoring', function(err, MonitoringModule) {
                 if (err) {
                     console.log('ERROR');
                     return;
                 }
-                if (!reportingModule.enabled) {
-                    var answer = { text: 'Module *' + reportingModule.name + '* is disabled.' };
+                if (!MonitoringModule.enabled) {
+                    var answer = { text: 'Module *' + MonitoringModule.name + '* is disabled.' };
                     sendBasicAnswerMessage(intent.message, answer);
                     return;
                 } else {
@@ -337,7 +339,7 @@ function processUsersIssues(intent) {
                             return;
                         }
                         var options = { email: user.email };
-                        Report.operation('getUsersIssues', options, function(err, response) {
+                        Monitoring.operation('getUsersIssues', options, function(err, response) {
                             if (err) {
                                 console.log('CHYBA: ', err);
                                 return;
@@ -361,18 +363,18 @@ function processAddComment(intent) {
     var comment = intent.parameters.comment;
     var issue = intent.parameters.issue;
 
-    getModule('reporting', function(err, reportingModule) {
+    getModule('Monitoring', function(err, MonitoringModule) {
         if (err) {
             console.log('ERROR');
             return;
         }
-        if (!reportingModule.enabled) {
-            var answer = { text: 'Module *' + reportingModule.name + '* is disabled.' };
+        if (!MonitoringModule.enabled) {
+            var answer = { text: 'Module *' + MonitoringModule.name + '* is disabled.' };
             sendBasicAnswerMessage(intent.message, answer);
             return;
         } else {
             var options = { issue, comment };
-            Report.operation('addComment', options, function(err, response) {
+            Monitoring.operation('addComment', options, function(err, response) {
                 if (err) {
                     console.log('CHYBA: ', err);
                     return;
@@ -391,7 +393,7 @@ function processAddComment(intent) {
 function processAssignIssue(intent) {
     const options = { issueID: 'FR-666', comment: 'prvy comment' }
 
-    Report.operation('addComment', options, function(err, response) {
+    Monitoring.operation('addComment', options, function(err, response) {
         if (err) {
             console.log('CHYBA: ', err);
             return;
@@ -534,7 +536,7 @@ function scheduleDailyStandup(message) {
 }
 
 /**
-    Setup channel for reporting output from user's after daily standup.
+    Setup channel for Monitoring output from user's after daily standup.
     @param {Object} message received message - channel number <#numb>
 */
 function processChannelSetup(message) {
@@ -555,7 +557,7 @@ function processChannelSetup(message) {
                     var regex = new RegExp('\\#(.*?)\\|');
                     var channelID = channel.match(regex)[1];
                     if (!channelID) {
-                            var answer = { text: 'Mesage format is not correct. Please send message in format `standup channel #report` for example.' };
+                            var answer = { text: 'Mesage format is not correct. Please send message in format `standup channel #Monitoring` for example.' };
                             sendBasicAnswerMessage(message, answer);
                             return;
                     } else {
@@ -622,6 +624,56 @@ function processUsersInStandup(message) {
         }
     });
 }
+
+// ****************************************************************************
+// PLANNING
+// ****************************************************************************
+
+function processStartVoting(intent) {
+    var self = this;
+    checkPermission(intent.message, function(permission) {
+        if (permission) {
+            getModule('Planning', function(err, standupModule) {
+                if (err) {
+                    console.log('ERROR');
+                    return;
+                }
+                if (!standupModule.enabled) {
+                    var answer = { text: 'Module *' + standupModule.name + '* is disabled.' };
+                    sendBasicAnswerMessage(intent.message, answer);
+                    return;
+                } else {
+                    slackbot.$workflow('getChannelMembers', intent.message.channel, function(error, response) {
+                        if (response.error && response.error == 'channel_not_found') {
+                            sendBasicAnswerMessage(intent.message, ':warning: You can use planning only in public channel.');
+                        } else if (Array.isArray(response)) {
+                            Planning.$workflow('startVoting', { intent: intent, members: response }, function(error, message) {
+                                response.forEach(function(member) {
+                                    message.channel = member;
+                                    slackbot.$workflow('postMessage', message);
+                                });
+                            });
+                        }
+                     });
+                }
+            });
+        }
+    });
+}
+
+U.processUserVote = function(json, callback) {
+    slackID = json.user.id;
+    value = json.actions[0].value;
+
+    Planning.$workflow('userVoted', { slackID, value }, function(error, response) {
+        if (response.finished) {
+            Planning.$workflow('votingFinished', function(error, response) {
+                slackbot.$workflow('postMessage', response);
+            });
+        }
+        return callback(error, response.text);
+    });
+};
 
 // ****************************************************************************
 // HELPER FUNCTIONS
@@ -741,7 +793,7 @@ function processUser(data) {
     @param {Object} asnwer response message with text
 */
 function sendBasicAnswerMessage(message, answer) {
-    Response.operation('basicResponse', answer, function (err, response) {
+    Responder.operation('basicResponder', answer, function (err, response) {
         if (err) {
             console.log('CHYBA: ', err);
             return;
