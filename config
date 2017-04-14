@@ -1,3 +1,9 @@
 name                                : Alica
 author                              : Maros Novak
 version                             : 1.0.0
+
+WARNING_STANDUP_TIME                : Incorrect time format. Please try `9:00` or `13PM` for example.
+WARNING_STANDUP_USERS               : Users or action not defined. Try to use 'add/remove @user to daily standup' format.
+WARNING_STANDUP_CHANNEL             : Channel is not defined. Please set channel with #channel.
+WARNING_ADMIN_RIGHTS                : USer or action not defined. Try to use 'add/remove @user admin rights'.
+WARNING_NOT_AUTHORIZED              : You don't have a permission for this action.

@@ -90,7 +90,7 @@ NEWSCHEMA('Parser').make(function(schema) {
             }
             intent.parameters.issues = validateIssuesKeys(message.text);
 
-            console.log(intent);
+            console.log('🤖 RECEIVED STANDUP ANSWER\n', intent);
             return callback(intent);
         });
 
@@ -121,7 +121,7 @@ NEWSCHEMA('Parser').make(function(schema) {
                 intent.parameters.issues = validateIssuesKeys(message.text);
             }
 
-            console.log('PARSED INTENT:', intent);
+            console.log('🤖 RECEIVED INTENT\n', intent);
             return callback(intent);
         });
 

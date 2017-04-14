@@ -1,7 +1,104 @@
 NEWSCHEMA('Responder').make(function(schema) {
 
-    schema.addOperation('statusResponder', function (error, model, modules, callback) {
-        return callback(buildStatusResponder(modules));
+    // ****************************************************************************
+    // Basic text messages, warnings and errors
+    // ****************************************************************************
+
+    /**
+     * WARNING MESSAGE
+     * @param {String} warningMessage String text from CONFIG file
+     * @return {Object} - {responseMessage}
+     */
+    schema.addOperation('warningMessage', function(error, model, message, callback) {
+        return callback({ text: '⚠️ ' + message });
+    });
+
+    // ****************************************************************************
+    // GENERAL messages
+    // ****************************************************************************
+
+    /**
+     * MDOULES STATUS MESSAGE
+     * @param {Object} options - { modules[], users[] }
+     * @return {Object} - {responseMessage}
+     */
+    schema.addOperation('modulesStatus', function (error, model, options, callback) {
+        return callback(buildStatusMessage(options));
+    });
+
+    /**
+     * ADMIN RIGHTS MESSAGE
+     * @param {Object} options - { admins, action }
+     * @return {Object} - {responseMessage}
+     */
+    schema.addOperation('adminRightsMessage', function(error, model, options, callback) {
+        var users = '';
+        options.admins.forEach(function(user) {
+            users += '<@' + user.slackID + '> ';
+        });
+        return callback({ text: '👥 ' + (options.action ? 'Added.' : 'Removed.') + ' Admin rights now have ' + users });
+    });
+
+    // ****************************************************************************
+    // STANDUP messages
+    // ****************************************************************************
+
+    /**
+     * STANDUP TIME SETUP MESSAGE
+     * @param {String} time new time set in format HH:MM
+     * @return {Object} - {responseMessage}
+     */
+    schema.addOperation('standupTimeMessage', function(error, model, time, callback) {
+        return callback({ text: '⏰ Ok. Time is set for *' + time + '* from Monday to Friday.' })
+    });
+
+    /**
+     * STANDUP USERS CHANGE MESSAGE
+     * @param {Object} options - { standupModole: Object, action: true/false }
+     * @return {Object} - {responseMessage}
+     */
+    schema.addOperation('standupUsersMessage', function(error, model, options, callback) {
+        var users = '';
+        options.standupModule.content.users.forEach(function(user) {
+            users += '<@' + user.slackID + '> ';
+        });
+        return callback({ text: '👥 ' + (options.action ? 'Added.' : 'Removed.') + ' Team now consist of ' + users });
+    });
+
+    /**
+     * STANDUP USERS CHANGE MESSAGE
+     * @param {String} channel - channel ID
+     * @return {Object} - {responseMessage}
+     */
+    schema.addOperation('standupChannelMessage', function(error, model, channel, callback) {
+        return callback({ text:'📋 Every user\'s report is now reported to the <#' + channel + '> channel.' });
+    });
+
+    /**
+     * STANDUP ALICA ANSWER TO USER - JIRA CHECK
+     * @param {Object} options - { incorrect, type }
+     * @return {Object} - {responseMessage}
+     */
+    schema.addOperation('standupJiraCheckMessage', function(error, model, options, callback) {
+        return callback(buildJiraCheckMessage(options));
+    });
+
+    /**
+     * Build USer's daily standup response from answers
+     * @param {Object} currentUser - { answers[], finished, blockers, icon }
+     * @return {Object} - {responseMessage}
+     */
+    schema.addOperation('standupUserReport', function (error, model, currentUser, callback) {
+        return callback(buildStandupReport(currentUser));
+    });
+
+    /**
+     * Build USer's daily standup response from answers
+     * @param {Object} reports - { users[] }
+     * @return {Object} - {responseMessage}
+     */
+    schema.addOperation('standupSummaryMessage', function (error, model, reports, callback) {
+        return callback(buildStandupSummary(reports));
     });
 
     schema.addOperation('helpResponder', function (error, model, options, callback) {
@@ -32,10 +129,6 @@ NEWSCHEMA('Responder').make(function(schema) {
         return callback(buildAddedCommentResponder(options));
     });
 
-    schema.addOperation('standupMonitoringResponder', function (error, model, checkIn, callback) {
-        return callback(buildStandupMonitoringResponder(checkIn));
-    });
-
     schema.addOperation('votingResponder', function (error, model, issue, callback) {
         return callback(buildVotingResponder(issue));
     });
@@ -44,13 +137,235 @@ NEWSCHEMA('Responder').make(function(schema) {
         return callback(buildVotingResultsResponder(votingResults));
     });
 
-    /**
-     * Build USer's daily standup response from answers
-     * @param {Object} options - { user, answers }
-     */
-    schema.addOperation('userStandupAnswerResponder', function (error, model, currentUser, callback) {
-        return callback(buildStandupResponder(currentUser));
-    });
+    // ****************************************************************************
+    // GENERAL messages
+    // ****************************************************************************
+
+    function buildStatusMessage(options) {
+        var json = {
+            text: '🗂 Here is status about enabled/disabled modules.',
+            attachments: [],
+        };
+        var admins = '';
+        options.users.forEach(function(user) {
+            admins += '<@' + user.slackID + '> ';
+        });
+        json.attachments.push({
+            title: 'General',
+            text: '👥 Information about admin rights.',
+            color: '#217CBA',
+            fields: [{
+                title: 'Admin (SM privilages)',
+                value: admins,
+                short: false
+            }]
+        });
+
+        options.modules.forEach(function(moduleObject) {
+            var fields = [];
+            if (moduleObject.name == 'Daily Standup') {
+                var users = '';
+                moduleObject.content.users.forEach(function(user) {
+                    users += '<@' + user.slackID + '> ';
+                });
+                fields = [{
+                    title: 'Report channel',
+                    value: '<#' + moduleObject.content.channel + '>',
+                    short: true
+                }, {
+                    title: 'Scheduled',
+                    value: moduleObject.content.scheduledTime,
+                    short: true
+                }, {
+                    title: 'Members',
+                    value: users != '' ? users : 'None',
+                    short: false
+                }]
+            }
+
+            var object = {
+                mrkdwn_in: ['text'],
+                title: moduleObject.name,
+                text: 'Module is ' + (moduleObject.enabled ? 'enabled. ' : 'disabled. ') + moduleObject.description,
+                color: moduleObject.enabled == true ? 'good' : '#DE0416',
+                fields: fields
+            }
+            json.attachments.push(object);
+        });
+        return json;
+    }
+
+    // ****************************************************************************
+    // STANDUP messages
+    // ****************************************************************************
+
+    function buildJiraCheckMessage(options) {
+        var issues = options.incorrect;
+        var answer;
+        if (!issues.length) {
+            answer = '👌🏼 Ok. Issues are ' + options.type + ' in Jira.\n';
+        } else if (issues.length == 1) {
+            answer = '⚠️ Please update issue in Jira, because <' + buildIssueLink(issues.first().key) + '|' + issues.first().key.toUpperCase() + '> is *not ' + options.type + '*.\n';
+        } else {
+            answer = '⚠️ Please update issues in Jira, because ';
+            issues.forEach(function(issue) {
+                answer = answer + '<' + buildIssueLink(issue.key) + '|' + issue.key.toUpperCase() + '> ';
+            });
+            answer = answer + 'are *not ' + options.type + '*.\n';
+        }
+        return answer;
+    }
+
+    function buildStandupReport(currentUser) {
+        console.log(JSON.stringify(currentUser));
+        var json = {
+            text: 'Standup report from <@' + currentUser.slackID + '> for *' + new Date().format('d. MMM yyyy') + '*',
+            attachments: [],
+            mrkdwn_in: ['text', 'title']
+        };
+
+        currentUser.answers.forEach(function(element) {
+            var color;
+            var icon;
+            var footer;
+            var text = element.answer;
+
+            if (element.issues) {
+                element.issues.forEach(function(issue) {
+                    text = text.replace(issue, '<' + buildIssueLink(issue) + '|' + issue.toUpperCase() + '>');
+                });
+            }
+
+            switch (element.question) {
+                case 'Yesterday - Done':
+                    icon = (element == currentUser.answers.first()) ? currentUser.icon : '';
+                    color = '#12AF5C';
+                    if (element.issues && element.issues.length) {
+                        if (element.incorrect && element.incorrect.length) {
+                            footer = '⚠️ Jira Check: ';
+                            footer += element.incorrect.toString().toUpperCase();
+                            footer += element.incorrect.length == 1 ? ' is not Done' : ' are not done in Jira.';
+                        } else {
+                            footer = '👌🏼 Ok. Issues are Done.';
+                        }
+                    } else {
+                        footer = '👀 No issues mentioned.';
+                    }
+                    break;
+                case 'Yesterday - In Progress':
+                    icon = (element == currentUser.answers.first()) ? currentUser.icon : '';
+                    color = '#E8A723';
+                    if (element.issues && element.issues.length) {
+                        if (element.incorrect && element.incorrect.length) {
+                            footer = '⚠️ Jira Check: ';
+                            footer += element.incorrect.toString().toUpperCase();
+                            footer += element.incorrect.length == 1 ? ' is not In Progress' : ' are not in progress in Jira.';
+                        } else {
+                            footer = '👌🏼 Ok. Issues are In Progress.';
+                        }
+                    } else {
+                        footer = '👀 No issues mentioned.';
+                    }
+                    break;
+                case 'Today':
+                    icon = (element == currentUser.answers.first()) ? currentUser.icon : '';
+                    color = '#217CBA';
+                    if (element.issues && element.issues.length) {
+                        if (element.incorrect && element.incorrect.length) {
+                            footer = '⚠️ Jira Check: ';
+                            footer += element.incorrect.toString().toUpperCase();
+                            footer += element.incorrect.length == 1 ? ' is not assigned to user.' : ' are not assigned to user in Jira.';
+                        } else {
+                        footer = '👌🏼 Ok. Issues are assigned to user.';
+                        }
+                    } else {
+                        footer = '👀 No issues mentioned.';
+                    }
+                    break;
+                case 'Blockers':
+                    icon = (element == currentUser.answers.first()) ? currentUser.icon : '';
+                    color = '#E84F3E';
+                    break;
+                default:
+            }
+
+            var object = {
+                color: color,
+                title: element.question,
+                text: text,
+                thumb_url: icon,
+                footer: footer
+            }
+            json.attachments.push(object);
+        });
+        console.log('VYSLEDOK', json);
+        return json;
+    }
+
+    function buildStandupSummary(reports) {
+        var json = {
+            text: 'Team standup summary report from *' + new Date().format('d. MMM yyyy') + '*.',
+            attachments: []
+        };
+        var text = '';
+        var ignoringUsers = '';
+        var blockingUsers = '';
+        var participants = 0;
+        var blockers = 0;
+        var done = 0;
+        var progress = 0;
+
+        reports.users.forEach(function(user) {
+            if (user.ignored) {
+                ignoringUsers += '<@' + user.slackID + '> ';
+            } else if (user.answers) {
+                text += '<@' + user.slackID + '> ';
+                participants++;
+            }
+            if (user.blockers) {
+                blockingUsers += '<@' + user.slackID + '> ';
+                blockers++;
+            }
+
+            user.answers.forEach(function(answer) {
+                if (answer.question == 'Yesterday - Done') {
+                    done += answer.issues.length;
+                }
+                if (answer.question == 'Yesterday - In Progress') {
+                    progress += answer.issues.length;
+                }
+            });
+
+        });
+
+        text += text ? 'reported status. ' : 'Nobody attended daily standup. ';
+        text += '*('+ (participants / reports.users.length) * 100 + '%)*\n';
+
+        text += ignoringUsers;
+        text += ignoringUsers ? 'ignored daily standup ' : 'Everybody attended daily standup.';
+        text += ignoringUsers ? '*('+ ((reports.users.length - participants) / reports.users.length) * 100 + '%)*\n' : '';
+
+        text += blockingUsers;
+        text += blockingUsers ? 'reported some blockers ' : 'Nobody reported blocking issues.';
+        text += ignoringUsers ? '('+ (blockers / reports.users.length) * 100 + '%)\n' : '';
+
+        json.attachments.push({
+            text: text,
+            color: '#217CBA',
+            mrkdwn_in: ['text'],
+            fields: [{
+                    title: 'Done',
+                    value: (done += (done == 1 ? ' issue' : ' issues')),
+                    short: true
+                }, {
+                    title: 'In Progress',
+                    value: (progress += (progress == 1 ? ' issue' : ' issues')),
+                    short: true
+                }
+            ]
+        });
+        return json;
+    }
 
     function buildIssueDetail(issue) {
         epochTime = new Date(issue.updated).getTime() / 1000;
@@ -173,173 +488,12 @@ NEWSCHEMA('Responder').make(function(schema) {
         return json;
     }
 
-    function buildStatusResponder(modules) {
-        var json = {
-            text: 'This is status about enabled/disabled bot modules.',
-            attachments: [],
-        };
-        modules.forEach(function (moduleObject) {
-            var fields = [];
-            if (moduleObject.name == 'standup') {
-                var users = '';
-                moduleObject.content.users.forEach(function(user) {
-                    users += '<@' + user.slackID + '> ';
-                });
-                fields = [{
-                    title: 'Output Channel',
-                    value: '<#' + moduleObject.content.channel + '>',
-                    short: true
-                }, {
-                    title: 'Repeating at',
-                    value: moduleObject.content.scheduledTime,
-                    short: true
-                }, {
-                    title: 'Members',
-                    value: users != '' ? users : 'None',
-                    short: false
-                }]
-            }
-
-            var object = {
-                title: moduleObject.name,
-                text: moduleObject.description,
-                color: moduleObject.enabled == true ? 'good' : '#DE0416',
-                fields: fields
-            }
-            json.attachments.push(object);
-        });
-
-
-        return json;
-    }
-
     function buildBasicResponder(message) {
         if (!message) {
             console.log('FAILED BUILD BASIC RESPONSE');
         } else {
             return message;
         }
-    }
-
-    function buildStandupResponder(currentUser) {
-        console.log(JSON.stringify(currentUser));
-        var json = {
-            text: 'Standup Monitoring from <@' + currentUser.slackID + '> for *' + new Date().format('d. MMM yyyy') + '*',
-            attachments: [],
-            mrkdwn_in: ['text', 'title']
-        };
-
-        currentUser.answers.forEach(function(element) {
-            var color;
-            var icon;
-            var footer;
-            var text = element.answer;
-
-            if (element.issues) {
-                element.issues.forEach(function(issue) {
-                    text = text.replace(issue, '<' + buildIssueLink(issue) + '|' + issue.toUpperCase() + '>');
-                });
-            }
-
-            switch (element.question) {
-                case 'Yesterday - Done':
-                    icon = (element == currentUser.answers.first()) ? currentUser.icon : '';
-                    color = '#12AF5C';
-                    if (element.issues && element.issues.length) {
-                        if (element.incorrect && element.incorrect.length) {
-                            footer = '⚠️ Jira Check: ';
-                            footer += element.incorrect.toString().toUpperCase();
-                            footer += element.incorrect.length == 1 ? ' is not Done' : ' are not done in Jira.';
-                        } else {
-                            footer = '✅ Jira Check: Ok. Issues are Done.';
-                        }
-                    } else {
-                        footer = '👀 No issues mentioned.';
-                    }
-                    break;
-                case 'Yesterday - In Progress':
-                    icon = (element == currentUser.answers.first()) ? currentUser.icon : '';
-                    color = '#E8A723';
-                    if (element.issues && element.issues.length) {
-                        if (element.incorrect && element.incorrect.length) {
-                            footer = '⚠️ Jira Check: ';
-                            footer += element.incorrect.toString().toUpperCase();
-                            footer += element.incorrect.length == 1 ? ' is not In Progress' : ' are not in progress in Jira.';
-                        } else {
-                            footer = '✅ Jira Check: Ok. Issues are In Progress.';
-                        }
-                    } else {
-                        footer = '👀 No issues mentioned.';
-                    }
-                    break;
-                case 'Today':
-                    icon = (element == currentUser.answers.first()) ? currentUser.icon : '';
-                    color = '#217CBA';
-                    if (element.issues && element.issues.length) {
-                        if (element.incorrect && element.incorrect.length) {
-                            footer = '⚠️ Jira Check: ';
-                            footer += element.incorrect.toString().toUpperCase();
-                            footer += element.incorrect.length == 1 ? ' is not assigned to user.' : ' are not assigned to user in Jira.';
-                        } else {
-                        footer = '✅ Jira Check: Ok. Issues are assigned to user.';
-                        }
-                    } else {
-                        footer = '👀 No issues mentioned.';
-                    }
-                    break;
-                case 'Blockers':
-                    icon = (element == currentUser.answers.first()) ? currentUser.icon : '';
-                    color = '#E84F3E';
-                    break;
-                default:
-            }
-            var object = {
-                color: color,
-                title: element.question,
-                text: text,
-                thumb_url: icon,
-                footer: footer
-                // footer_icon: footer_icon
-            }
-            json.attachments.push(object);
-        });
-        console.log('VYSLEDOK', json);
-        return json;
-    }
-
-    function buildStandupMonitoringResponder(checkIn) {
-        var json = {
-            text: 'Team standup summary from *' + new Date().format('d. MMM yyyy') + '*.',
-            attachments: []
-        };
-        var text = '';
-        var participants = 0;
-        var blockers = 0;
-
-        checkIn.users.forEach(function(user) {
-            if (user.answers) {
-                text += '<@' + user.slackID + '> ';
-                participants++;
-            }
-        });
-        text += text ? 'Monitoringed status. ' : 'Nobody attended daily standup. ';
-        text += '('+ (participants / checkIn.users.length) * 100 + '%)\n';
-
-        checkIn.users.forEach(function(user) {
-            if (user.blockers) {
-                text += '<@' + user.slackID + '> ';
-                blockers++;
-            }
-        });
-        text += text ? 'Monitoringed some blockers. ' : 'Nobody Monitoringed blocking issues.';
-        text += '('+ (blockers / checkIn.users.length) * 100 + '%)\n';
-
-        var object = {
-            text: text,
-            color: '#217CBA'
-        }
-        json.attachments.push(object);
-        return json;
     }
 
     function buildVotingResponder(issue) {

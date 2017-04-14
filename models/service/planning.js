@@ -3,7 +3,7 @@ var Responder = GETSCHEMA('Responder');
 
 NEWSCHEMA('Planning').make(function(schema) {
 
-    schema.define('results', 'Array');
+    schema.define('results', 'Object');
     schema.define('originalChannel', 'String');
 
     schema.setDefault(function(name) {

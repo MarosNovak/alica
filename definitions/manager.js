@@ -22,7 +22,7 @@ slackbot.$workflow('connect', function(err) {
                 return processStatus(intent);
             case 'MODULES-ACTIVATION':
                 return processModuleChangeEnable(intent);
-            case 'ADMIN':
+            case 'MODULES-ADMIN-RIGHTS':
                 return processModuleAdminRights(intent);
         }
     });
@@ -48,11 +48,11 @@ slackbot.$workflow('connect', function(err) {
         switch(intent.type) {
             case 'START':
                 return processStartDailyStandup(intent);
-            case 'SCHEDULE':
+            case 'STANDUP-TIME':
                 return scheduleDailyStandup(intent);
-            case 'CHANNEL':
+            case 'STANDUP-CHANNEL':
                 return processChannelSetup(intent);
-            case 'USERS':
+            case 'STANDUP-USERS':
                 return processUsersInStandup(intent);
             case 'STANDUP-ANSWER':
                 return processUserAnsweredQuestion(intent);
@@ -108,8 +108,8 @@ function processHelp(intent) {
 }
 
 /**
-    Get help message from Responder
-    @param {Object} message received message form Slack
+*   Modules status message
+*   @param {Object} intent
 */
 function processStatus(intent) {
     Module.get({}, function (err, modules) {
@@ -117,37 +117,28 @@ function processStatus(intent) {
             console.log('CHYBA PRI GET Z DB', err);
             return;
         }
-        Responder.operation('statusResponder', modules, function (err, response) {
-            if (err) {
-                console.log('CHYBA: ', err);
-                return;
-            }
-            console.log('RESPONSE: ' + JSON.stringify(response));
-            slackbot.$workflow('reply', { message: intent.message, response }, function() {
-                console.log('ODOSLANE');
-                return;
+        User.query(filter = { filter : { admin: true } }, function(err, users) {
+            Responder.operation('modulesStatus', { modules, users }, function (err, response) {
+                if (err) {
+                    console.log('CHYBA: ', err);
+                    return;
+                }
+                return sendBasicAnswerMessage(intent.message, response);
             });
         });
     });
 }
 
 /**
-    Change module enable/disable status
-    @param {Object} message received message form Slack
-    @param {Boolean} enabled if module should be enabled/disabled
+*    Change module enable/disable status
+*    @param {Object} intent - parameters: { enabled: Bool, module: String }
 */
 function processModuleChangeEnable(intent) {
     checkPermission(intent.message, function(permission) {
         if (permission) {
             var self = this;
             var enabled = JSON.parse(intent.parameters.enabled);
-            var filter = {
-                filter : { name: intent.parameters.module }
-            };
-            Module.get(filter, function (error, response) {
-                console.log('ERR', error);
-                console.log('SLACK MODUL GET Z DB', response);
-                var slackModule = response[0];
+            getModule(intent.parameters.module, function(err, slackModule) {
                 if (slackModule) {
                     if (slackModule.enabled == enabled) {
                         var answer = { text: 'Module is already' + (enabled ? ' enabled' : ' disabled') };
@@ -174,28 +165,34 @@ function processModuleChangeEnable(intent) {
 
 /**
     Set admin rights to user/s
-    @param {Object} message received message form Slack contains users list
+    @param {Object} intent - parameters - { users[], action: Bool }
 */
-function processModuleAdminRights(message) {
-    var self = this;
-    getUser(message.user, function(error, superadmin) {
+function processModuleAdminRights(intent) {
+    getUser(intent.message.user, function(error, superadmin) {
         if (superadmin.superadmin) {
-            var regex = new RegExp('<@(.*)>');
-            var users = message.text.split(' ').filter(u => u.contains('<@')).map(formatSlackID);
+            users = intent.parameters.users;
+            action = (intent.parameters.action == 'true');
+            if (!users.length || !intent.parameters.action) {
+                return replyWithWarningMessage(intent.message, F.config.WARNING_ADMIN_RIGHTS);
+            }
+            var count = 0;
             users.forEach(function(user) {
                 getUser(user, function(error, admin) {
-                    admin.admin = true;
+                    admin.admin = action;
                     admin.$save(function(err) {
-                        if (err) {
-                            var answer = { text: 'Setting privilages failed.' };
-                            sendBasicAnswerMessage(message, answer);
+                        count++;
+                        if (users.length == count) {
+                            User.query(filter = { filter : { admin: true } }, function(err, admins) {
+                                Responder.operation('adminRightsMessage', { admins, action }, function(error, response) {
+                                    return sendBasicAnswerMessage(intent.message, response);
+                                });
+                            });
                         }
                     });
                 });
             });
         } else {
-            var answer = { text: 'You don\' have a permission.' };
-            sendBasicAnswerMessage(message, answer);
+            replyWithWarningMessage(intent.message, F.config.WARNING_NOT_AUTHORIZED);
         }
     });
 }
@@ -416,7 +413,7 @@ function processStartDailyStandup(intent) {
     checkPermission(intent.message, function(permission) {
         if (permission) {
             var self = this;
-            getModule('standup', function(err, standupModule) {
+            getModule('Daily Standup', function(err, standupModule) {
                 if (err) {
                     console.log('ERROR');
                     return;
@@ -446,8 +443,7 @@ function processStartDailyStandup(intent) {
 
 /**
     User answered question - process incomming answer and send another question
-    @param {Object} message received message
-    @param {Object} conversation conversation with slack member
+    @param {Object} intent
 */
 function processUserAnsweredQuestion(intent) {
     var self = this;
@@ -460,10 +456,6 @@ function processUserAnsweredQuestion(intent) {
                 return;
             }
             if (response.standupFinished) {
-                User.query(filter = { filter : { admin: true } }, function(err, users) {
-
-                });
-
                 self.standup.$workflow('standupEnded', function(error, message) {
                     User.query(filter = { filter : { admin: true } }, function(err, users) {
                         users.forEach(function (user) {
@@ -492,58 +484,62 @@ function processUserAnsweredQuestion(intent) {
 }
 
 /**
-    Schedule time for standup repetition
-    @param {Object} message received message {time HH:MM}
+*   Schedule time for standup repetition
+*   @param {Object} intent - parameters { time : HH:MM:SS }
 */
-function scheduleDailyStandup(message) {
+function scheduleDailyStandup(intent) {
     var self = this;
-    getModule('standup', function(err, standupModule) {
+
+    getModule('Daily Standup', function(err, standupModule) {
         if (err) {
             console.log('ERROR');
             return;
         }
         if (!standupModule.enabled) {
             var answer = { text: 'Module *' + standupModule.name + '* is disabled.' };
-            sendBasicAnswerMessage(message, answer);
+            sendBasicAnswerMessage(intent.message, answer);
             return;
         } else {
-            var timeString = message.text.split(' ', 3)[2];
-            var timeComponents = timeString.split(':', 2);
-            if (!timeComponents || !Array.isArray(timeComponents)) {
-                var answer = { text: 'Mesage format is not correct. Please send message in format `standup time 10:30` for example.' };
-                sendBasicAnswerMessage(message, answer);
-                return;
+            var timeComponents = intent.parameters.time.split(':', 2);
+
+            if (!timeComponents.length || !intent.parameters.time) {
+                return replyWithWarningMessage(intent.message, F.config.WARNING_STANDUP_TIME);
             }
+
             if (self.scheduler) {
                 self.scheduler.destroy();
             }
+
             var scheduledTime = ('59 ' + timeComponents[1] + ' ' + timeComponents[0] + ' * * *');
+
             self.scheduler = Cron.schedule(scheduledTime, function() {
                 processStartDailyStandup(null);
             });
-            standupModule.content.scheduledTime = timeString;
+
+            standupModule.content.scheduledTime = timeComponents[0] + ':' + timeComponents[1];
             standupModule.$save(function (error, count) {
                 if (error) {
+                    console.log('SAVE FAILED', error);
                     return;
                 }
                 self.scheduler.start();
-                var answer = { text: 'Daily standup is set for *' + timeString + '* from _Monday_ to _Friday_.' };
-                sendBasicAnswerMessage(message, answer);
-                return;
+                Responder.operation('standupTimeMessage', standupModule.content.scheduledTime, function(error, response) {
+                    return sendBasicAnswerMessage(intent.message, response);
+                });
             });
         }
     });
 }
 
 /**
-    Setup channel for Monitoring output from user's after daily standup.
-    @param {Object} message received message - channel number <#numb>
+*    Setup channel for Reports output from users
+*   @param {Object} intent - parameters { channel: String }
 */
-function processChannelSetup(message) {
-    checkPermission(message, function(permission) {
+function processChannelSetup(intent) {
+    checkPermission(intent.message, function(permission) {
         if (permission) {
             var self = this;
-            getModule('standup', function(err, standupModule) {
+            getModule('Daily Standup', function(err, standupModule) {
                 if (err) {
                     console.log('ERROR');
                     return;
@@ -553,25 +549,20 @@ function processChannelSetup(message) {
                     sendBasicAnswerMessage(message, answer);
                     return;
                 } else {
-                    var channel = message.text.split(' ',3)[2];
-                    var regex = new RegExp('\\#(.*?)\\|');
-                    var channelID = channel.match(regex)[1];
-                    if (!channelID) {
-                            var answer = { text: 'Mesage format is not correct. Please send message in format `standup channel #Monitoring` for example.' };
-                            sendBasicAnswerMessage(message, answer);
-                            return;
-                    } else {
-                        standupModule.content.channel = channelID;
-                        standupModule.$save(function (error, count) {
-                            if (error) {
-                                console.log('SAVING ERROR');
-                                return;
-                            }
-                            var answer = { text: 'Alice will post everyone\'s answers to a <#' + channelID + '> channel.' };
-                            sendBasicAnswerMessage(message, answer);
-                            return;
-                        });
+                    var channel = intent.parameters.channel;
+                    if (!channel) {
+                        return replyWithWarningMessage(intent.message, F.config.WARNING_STANDUP_CHANNEL);
                     }
+                    standupModule.content.channel = channel;
+                    standupModule.$save(function (error, count) {
+                        if (error) {
+                            console.log('SAVING ERROR');
+                            return;
+                        }
+                        Responder.operation('standupChannelMessage', channel, function(error, response) {
+                            return sendBasicAnswerMessage(intent.message, response);
+                        });
+                    });
                 }
             });
         }
@@ -579,30 +570,37 @@ function processChannelSetup(message) {
 }
 
 /**
-    Add users to standup
-    @param {Object} message received message - array of users <@num> <@num>
+*   Add/Remove standup users
+*   @param {Object} intent - parameters { action:true/false, users:[] }
 */
-function processUsersInStandup(message) {
-    checkPermission(message, function(permission) {
+function processUsersInStandup(intent) {
+    checkPermission(intent.message, function(permission) {
         if (permission) {
             var self = this;
-            getModule('standup', function(err, standupModule) {
+            getModule('Daily Standup', function(err, standupModule) {
                 if (err) {
                     console.log('ERROR');
                     return;
                 }
                 if (!standupModule.enabled) {
                     var answer = { text: 'Module *' + standupModule.name + '* is disabled.' };
-                    sendBasicAnswerMessage(message, answer);
+                    sendBasicAnswerMessage(intent.message, answer);
                     return;
                 } else {
-                    var messages = message.text.split(' ');
-                    var regex = new RegExp('<@(.*)>');
-                    messages.forEach(function(message) {
-                        if (message.contains('<@')) {
-                            var slackID = message.match(regex)[1];
+                    users = intent.parameters.users;
+                    action = (intent.parameters.action == 'true');
+
+                    if (!users.length || !intent.parameters.action) {
+                        return replyWithWarningMessage(intent.message, F.config.WARNING_STANDUP_USERS);
+                    }
+                    users.forEach(function(slackID) {
+                        if (action) {
                             if (standupModule.content.users.findIndex('slackID', slackID) < 0) {
-                                standupModule.content.users.push({slackID : slackID})
+                                standupModule.content.users.push( {slackID : slackID} )
+                            }
+                        } else {
+                            if (standupModule.content.users.findIndex('slackID', slackID) > -1) {
+                                standupModule.content.users.splice(standupModule.content.users.indexOf(slackID), 1)
                             }
                         }
                     });
@@ -611,13 +609,9 @@ function processUsersInStandup(message) {
                             console.log('SAVING ERROR');
                             return;
                         }
-                        var string = '';
-                        standupModule.content.users.forEach(function(user) {
-                            string += '<@' + user.slackID + '> ';
+                        Responder.operation('standupUsersMessage', { standupModule, action }, function(error, response) {
+                            return sendBasicAnswerMessage(intent.message, response);
                         });
-                        var answer = { text: 'Standup members are: ' + string };
-                        sendBasicAnswerMessage(message, answer);
-                        return;
                     });
                 }
             });
@@ -783,6 +777,19 @@ function processUser(data) {
                     });
                 });
             }
+        });
+    });
+}
+
+/**
+    Helper function for returning basic answer from slackbot
+    @param {Object} message received message
+    @param {Object} asnwer response message with text
+*/
+function replyWithWarningMessage(message, warningMessage) {
+    Responder.operation('warningMessage', warningMessage, function (err, response) {
+        slackbot.$workflow('reply', { message, response }, function() {
+            return;
         });
     });
 }

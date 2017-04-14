@@ -38,7 +38,7 @@ NEWSCHEMA('Bot').make(function(schema) {
         model.parser.operation('initAnalyzer');
 
         model.slack.on('direct_message', function(bot, message) {
-            console.log('RECEIVED DIRECT MESSAGE', message);
+            console.log('RECEIVED DIRECT MESSAGE');
             model.parser.operation('parseMessage', message, function(err, intent) {
                 if (err) {
                     console.log('ERR PARSER: ', err);
@@ -51,7 +51,7 @@ NEWSCHEMA('Bot').make(function(schema) {
         });
 
         model.slack.on('direct_mention', function(bot,message) {
-            console.log('RECEIVED MENTION MESSAGE', message);
+            console.log('RECEIVED MENTION MESSAGE');
             model.parser.operation('parseMessage', message, function(err, intent) {
                 if (err) {
                     console.log('ERR PARSER: ', err);

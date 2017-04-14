@@ -2,7 +2,7 @@ var jira = GETSCHEMA('Jira').make();
 var Responder = GETSCHEMA('Responder');
 
 NEWSCHEMA('Standup').make(function(schema) {
-    schema.define('Monitorings', 'Array');
+    schema.define('reports', 'Array');
     schema.define('questions', 'Array');
     schema.define('conversations', 'Array');
     schema.define('channel', 'String');
@@ -11,11 +11,11 @@ NEWSCHEMA('Standup').make(function(schema) {
     schema.setDefault(function(name) {
         switch(name) {
             case 'questions':
-                return ['What did you accomplish yesterday? Monitoring `done` issues.',
-                        'What you were working on yesterday? Monitoring `in progress` issues.',
-                        'What are your plans for today?',
-                        'What obstacles are impeding your progress?'];
-            case 'Monitorings':
+                return ['_What did you accomplish yesterday? Report `done` issues._',
+                        '_What you were working on yesterday? Report `in progress` issues._',
+                        '_What are your plans for today?_',
+                        '_What obstacles are impeding your progress?_'];
+            case 'reports':
                 return {
                     users:[]
                 }
@@ -32,16 +32,17 @@ NEWSCHEMA('Standup').make(function(schema) {
         model.channel = options.standupModule.content.channel;
 
         users.forEach(function(user) {
-            model.Monitorings.users.push({
+            model.reports.users.push({
                 slackID: user.slackID,
                 answers: [],
                 finished: false,
                 blockers: false,
+                ignored: false,
                 icon: null
             });
         });
 
-        console.log('standup users', model.Monitorings);
+        console.log('standup users', model.reports);
         var response = {
             question: model.questions[0],
             users: users
@@ -50,13 +51,13 @@ NEWSCHEMA('Standup').make(function(schema) {
         jira.$workflow('getContextIssues', function(error, response) {
             model.contextIssues = response;
         });
-
         callback(error, response);
     });
 
     schema.addWorkflow('addConversation', function(error, model, conversation, callback) {
-        conversation.sayFirst('Hi, it\'s time for daily standup. Hope you\'re ready! Join <#' + model.channel + '> for check-in.');
+        conversation.sayFirst('Hi, it\'s time for *daily standup*. Hope you\'re ready! Join <#' + model.channel + '> for report.');
         model.conversations.push(conversation);
+
         return callback();
     });
 
@@ -80,11 +81,12 @@ NEWSCHEMA('Standup').make(function(schema) {
             });
         }
 
-        currentUser = model.Monitorings.users.filter(function(user) {
+        currentUser = model.reports.users.filter(function(user) {
             return user.slackID == intent.message.user;
         }).first();
 
         if (intent.ignored == true) {
+            currentUser.ignored = true;
             conversation.context.bot.say({ text:'You are ignoring today\'s standup. See you next time.', channel: conversation.context.user });
             conversation.stop();
             model.conversations.splice(model.conversations.indexOf(conversation), 1);
@@ -96,16 +98,19 @@ NEWSCHEMA('Standup').make(function(schema) {
 
         if (message.question == model.questions[0]) {
             if (intent.parameters && intent.parameters.issues.length) {
-                analyzeFirstAnswer(intent, model.contextIssues, function(answer, notDone) {
+                analyzeFirstAnswer(intent, model.contextIssues, function(incorrect) {
                     currentUser.answers.push({
                         question: 'Yesterday - Done',
                         answer: message.text,
                         issues: intent.parameters.issues,
-                        incorrect: notDone.map(function(iss) {return iss.key;})
+                        incorrect: incorrect.map(function(iss) {return iss.key;})
                     });
-                    textMessage = answer + model.questions[1];
-                    conversation.next();
-                    return callback(error, { textMessage, currentUser, standupFinished, standupCanceled });
+
+                    Responder.operation('standupJiraCheckMessage', { incorrect, type: 'Done' }, function (error, response) {
+                        textMessage = response + model.questions[1];
+                        conversation.next();
+                        return callback(error, { textMessage, currentUser, standupFinished, standupCanceled });
+                    });
                 });
             } else {
                 if (!intent.skipped) {
@@ -124,17 +129,19 @@ NEWSCHEMA('Standup').make(function(schema) {
 
         if (message.question.includes(model.questions[1])) {
             if (intent.parameters && intent.parameters.issues.length) {
-                analyzeSecondAnswer(intent, model.contextIssues, function(answer, notInProgress) {
+                analyzeSecondAnswer(intent, model.contextIssues, function(incorrect) {
                     currentUser.answers.push({
                         question: 'Yesterday - In Progress',
                         answer: message.text,
                         issues: intent.parameters.issues,
-                        incorrect: notInProgress.map(function(iss) {return iss.key;})
+                        incorrect: incorrect.map(function(iss) {return iss.key;})
                     });
 
-                    textMessage = answer + model.questions[2];
-                    conversation.next();
-                    return callback(error, { textMessage, currentUser, standupFinished, standupCanceled });
+                    Responder.operation('standupJiraCheckMessage', { incorrect, type: 'In Progress' }, function (error, response) {
+                        textMessage = response + model.questions[2];
+                        conversation.next();
+                        return callback(error, { textMessage, currentUser, standupFinished, standupCanceled });
+                    });
                 });
             } else {
                 if (!intent.skipped) {
@@ -153,17 +160,19 @@ NEWSCHEMA('Standup').make(function(schema) {
 
         if (message.question.includes(model.questions[2])) {
             if (intent.parameters && intent.parameters.issues.length) {
-                analyzeThirdAnswer(intent, model.contextIssues, function(answer, notAssigned) {
+                analyzeThirdAnswer(intent, model.contextIssues, function(incorrect) {
                     currentUser.answers.push({
                         question: 'Today',
                         answer: message.text,
                         issues: intent.parameters.issues,
-                        incorrect: notAssigned.map(function(iss) {return iss.key;})
+                        incorrect: incorrect.map(function(iss) {return iss.key;})
                     });
 
-                    textMessage = answer + model.questions[3];
-                    conversation.next();
-                    return callback(error, { textMessage, currentUser, standupFinished, standupCanceled });
+                    Responder.operation('standupJiraCheckMessage', { incorrect, type: 'assigned to you' }, function (error, response) {
+                        textMessage = response + model.questions[3];
+                        conversation.next();
+                        return callback(error, { textMessage, currentUser, standupFinished, standupCanceled });
+                    });
                 });
              } else {
                  if (!intent.skipped) {
@@ -205,7 +214,7 @@ NEWSCHEMA('Standup').make(function(schema) {
      * @return {function} callback - { error, response - output message }
      */
     schema.addWorkflow('userFinishedStandup', function(error, model, currentUser, callback) {
-        Responder.operation('userStandupAnswerResponder', currentUser, function(error, response) {
+        Responder.operation('standupUserReport', currentUser, function(error, response) {
             response.channel = model.channel;
             console.log('RESPONSE', response);
             if (error) {
@@ -217,11 +226,11 @@ NEWSCHEMA('Standup').make(function(schema) {
     });
 
     /**
-     * Daily standup is over. Send Monitoring to HR Manager
+     * Daily standup is over. Send Report to HR Manager
      * @return {function} callback - { error, response - output message }
      */
     schema.addWorkflow('standupEnded', function(error, model, options, callback) {
-        Responder.operation('standupMonitoringResponder', model.Monitorings, function(error, response) {
+        Responder.operation('standupSummaryMessage', model.reports, function(error, response) {
             console.log('RESPONSE', response);
             if (error) {
                 console.log('ERROR', error);
@@ -231,10 +240,9 @@ NEWSCHEMA('Standup').make(function(schema) {
         });
     });
 
-
     function analyzeFirstAnswer(intent, contextIssues, callback) {
         console.log('context issues', contextIssues);
-        var notDone = [];
+        var incorrect = [];
         var index = 0;
         intent.parameters.issues.forEach(function(issueKey) {
             var contextIssue = contextIssues.filter(function(element) {
@@ -243,22 +251,10 @@ NEWSCHEMA('Standup').make(function(schema) {
             getMissingContextIssue(contextIssue, issueKey, contextIssues, function(contextIssue) {
                 index++;
                 if (contextIssue && contextIssue.status != 'Done') {
-                    notDone.push(contextIssue);
+                    incorrect.push(contextIssue);
                 }
                 if (index == intent.parameters.issues.length) {
-                    var answer;
-                    if (notDone.length == 0) {
-                        answer = '*Great.*\n';
-                    } else if (notDone.length == 1) {
-                        answer = 'Okay, but issue *' + notDone.first().key + '* is `' + notDone.first().status + '` in Jira.\n';
-                    } else {
-                        answer = 'Okay but issues ';
-                        notDone.forEach(function(issue) {
-                            answer = answer + '*' + issue.key + '* ';
-                        });
-                        answer = answer + 'are not `done` in Jira.\n';
-                    }
-                    return callback(answer, notDone);
+                    return callback(incorrect);
                 }
             });
         });
@@ -266,7 +262,7 @@ NEWSCHEMA('Standup').make(function(schema) {
 
     function analyzeSecondAnswer(intent, contextIssues, callback) {
         console.log('context issues', contextIssues);
-        var notInProgress = [];
+        var incorrect = [];
         var index = 0;
         intent.parameters.issues.forEach(function(issueKey) {
             var contextIssue = contextIssues.filter(function(element) {
@@ -275,22 +271,10 @@ NEWSCHEMA('Standup').make(function(schema) {
             getMissingContextIssue(contextIssue, issueKey, contextIssues, function(contextIssue) {
                 index++;
                 if (contextIssue && contextIssue.status != 'In Progress') {
-                    notInProgress.push(contextIssue);
+                    incorrect.push(contextIssue);
                 }
                 if (index == intent.parameters.issues.length) {
-                    var answer;
-                    if (notInProgress.length == 0) {
-                        answer = '*Okay.*\n';
-                    } else if (notInProgress.length == 1) {
-                        answer = 'Okay, but *'+  notInProgress.first().key +'* is not `in progress` in Jira.\n';
-                    } else {
-                        answer = 'Okay but issues ';
-                        notInProgress.forEach(function(issue) {
-                            answer = answer + '*' + issue.key + '* ';
-                        });
-                        answer = answer + 'are not `in progress` in Jira.\n';
-                    }
-                    return callback(answer, notInProgress);
+                    return callback(incorrect);
                 }
             });
         });
@@ -298,7 +282,7 @@ NEWSCHEMA('Standup').make(function(schema) {
 
     function analyzeThirdAnswer(intent, contextIssues, callback) {
         console.log('context issues', contextIssues);
-        var notAssigned = [];
+        var incorrect = [];
         var index = 0;
         intent.parameters.issues.forEach(function(issueKey) {
             var contextIssue = contextIssues.filter(function(element) {
@@ -307,21 +291,11 @@ NEWSCHEMA('Standup').make(function(schema) {
             getMissingContextIssue(contextIssue, issueKey, contextIssues, function(contextIssue) {
                 index++;
                 if (contextIssue && contextIssue.assignee != intent.user.email) {
-                    notAssigned.push(contextIssue);
+                    incorrect.push(contextIssue);
                 }
-                var answer;
-                if (notAssigned.length == 0) {
-                    answer = '*Okay.*\n';
-                } else if (notAssigned.length == 1) {
-                    answer = 'Okay, but *'+  notAssigned.first().key +'* is not assigned to you in Jira.\n';
-                } else {
-                    answer = 'Okay but issues ';
-                    notAssigned.forEach(function(issue) {
-                        answer = answer + '*' + issue.key + '* ';
-                    });
-                    answer = answer + 'are not assigned to you in Jira.\n';
+                if (index == intent.parameters.issues.length) {
+                    return callback(incorrect);
                 }
-                return callback(answer, notAssigned);
             });
         });
     }
