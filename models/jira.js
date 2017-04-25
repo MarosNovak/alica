@@ -1,5 +1,6 @@
 var JiraApi = require('jira-client');
 var contextJQL = 'project = FR AND status in ("In Progress", Done, "To Do") AND updated >= -6d';
+var usersInProgressJQL = 'status = "In Progress" AND assignee =';
 
 NEWSCHEMA('Jira').make(function(schema) {
     schema.define('jira', 'Object');
@@ -30,61 +31,52 @@ NEWSCHEMA('Jira').make(function(schema) {
     schema.addWorkflow('getJiraLastSprintIssues', function(error, model, options, callback) {
         console.log('NACITAVAM JIRA');
         var rapidView = options.rapidView;
-        if (!rapidView) {
-            error.push('Missing rapid view');
-            return callback();
-        }
         model.jira.findRapidView(rapidView).then(function(rapidView) {
             return model.jira.getLastSprintForRapidView(rapidView.id).then(function(sprint) {
+                if (!sprint) {
+                    error.push('Sprint not found');
+                    return callback();
+                }
                 return model.jira.getSprintIssues(rapidView.id, sprint.id).then(function(issues) {
-                    console.log(JSON.stringify(issues));
                     console.log('NACITANA JIRA');
                     if (issues && issues.contents) {
-                        var jsonResponder = [];
+                        var jsonReponse = [];
                         issues.contents.issuesNotCompletedInCurrentSprint.forEach(function(issue) {
-                            jsonResponder.push(parseIssue(issue));
+                            jsonReponse.push(parseIssue(issue));
                         });
-                        return callback(jsonResponder);
+                        return callback(jsonReponse);
                     } else {
                         error.push('Issues not found.');
                         return callback();
                     }
                 });
             });
-        }).catch(function(err) {
-            console.log('JIRA ERROR');
-            error.push(err.message);
-            return callback();
         });
     });
 
     /**
      * get user's assigned issues
-     * @param {Object} options { email }
+     * @param {Object} email
      * @return {Object} response
      */
-    schema.addWorkflow('getUsersIssues', function (error, model, options, callback) {
-        var email = options.email;
+    schema.addWorkflow('getUsersIssues', function (error, model, email, callback) {
         if (!email) {
             error.push('Missing user email');
             return callback();
         }
         console.log('NACITAVAM JIRA');
-        model.jira.getUsersIssues(email, true).then(function (jiraResponder) {
+        model.jira.getUsersIssues(email, true).then(function (jiraResponse) {
             console.log('NACITANA JIRA');
-            console.log('JIRA POLE', jiraResponder);
+            console.log('JIRA POLE', jiraResponse);
             var jsonResponder;
-            if (jiraResponder.total > 0 && Array.isArray(jiraResponder.issues)) {
-                jsonResponder = jiraResponder.issues.map(issue => parseExpandedListIssue(issue));
-            } else if (jiraResponder.total == 1) {
-                jsonResponder = [parseExpandedListIssue(jiraResponder)];
+            if (jiraResponse.total > 0 && Array.isArray(jiraResponse.issues)) {
+                jsonResponder = jiraResponse.issues.map(issue => parseExpandedListIssue(issue));
+            } else if (jiraResponse.total == 1) {
+                jsonResponder = [parseExpandedListIssue(jiraResponse)];
             } else {
                 jsonResponder = { error: 'No issues found.' };
             }
             return callback(jsonResponder);
-        }).catch(function(err) {
-            console.log('JIRA ERROR');
-            error.push(err.message);
         });
     });
 
@@ -96,16 +88,17 @@ NEWSCHEMA('Jira').make(function(schema) {
     schema.addWorkflow('getIssues', function (error, model, issues, callback) {
         console.log('NACITAVAM JIRA');
         if (issues.length == 1) {
-            model.jira.findIssue(issues.pop(), true).then(function (jiraResponder) {
-                return callback(parseExpandedDetailIssue(jiraResponder))
+            model.jira.findIssue(issues.pop(), true).then(function (jiraResponse) {
+                console.log(JSON.stringify(jiraResponse));
+                return callback(parseExpandedDetailIssue(jiraResponse))
             });
         } else {
             var responseIssues = [];
             var count = 0;
             issues.forEach(function(issue) {
-                model.jira.findIssue(issue, true).then(function (jiraResponder) {
+                model.jira.findIssue(issue, true).then(function (jiraResponse) {
                     count++;
-                    responseIssues.push(parseExpandedListIssue(jiraResponder));
+                    responseIssues.push(parseExpandedListIssue(jiraResponse));
                     if (count == issues.length) {
                         return callback(responseIssues);
                     }
@@ -115,23 +108,19 @@ NEWSCHEMA('Jira').make(function(schema) {
     });
 
     /**
-     * ASSING
-     * @param {Object} options { email, issueID }
+     * Assigned issue
+     * @param {Object} options { user, issueKey }
      * @return {Object} response
      */
     schema.addWorkflow('assignIssue', function (error, model, options, callback) {
-        const issueID = options.issueID;
-        const userEmail = 'username=' + options.email;
-
-        console.log('NACITAVAM JIRA');
-        model.jira.searchJira(userEmail).then(function (responseUser) {
-            console.log(responseUser);
+        model.jira.searchUsers({ username: options.user.email }).then(function(responseArray) {
+            if (Array.isArray(responseArray)) {
+                user = responseArray.first();
+                model.jira.assignIssue(options.issueKey, user.name).then(function(response) {
+                    return callback(response);
+                });
+            }
         });
-
-        // model.jira.assignIssue(issueID, userEmail).then(function (response) {
-        //     console.log('assigned');
-        //     return callback(response);
-        // });
     });
 
     /**
@@ -166,6 +155,30 @@ NEWSCHEMA('Jira').make(function(schema) {
         });
     });
 
+    schema.addWorkflow('getUsersInProgressIssues', function(error, model, email, callback) {
+        var issues = [];
+        var query = usersInProgressJQL + email;
+        model.jira.searchJira(query).then(function(response) {
+            if (response.total > 0 && Array.isArray(response.issues)) {
+                response.issues.forEach(function(issue) {
+                    issues.push(parseContextIssue(issue));
+                });
+            }
+            return callback(issues);
+        });
+    });
+
+    schema.addWorkflow('setStoryPoints', function(error, model, options, callback) {
+        model.jira.updateIssue(options.issueKey, { fields: { customfield_10002: options.points }}).then(function(response) {
+            return callback();
+        });
+    });
+
+    schema.addWorkflow('changeStatus', function(error, model, options, callback) {
+        model.jira.transitionIssue(options.issueKey, { transition: { id: options.status }}).then(function(response) {
+            return callback();
+        });
+    });
 
     /**
      * Get normalized parsed Jira issue
@@ -173,7 +186,6 @@ NEWSCHEMA('Jira').make(function(schema) {
      * @return {Object} normalized issue
      */
     function parseIssue(issue) {
-        console.log(JSON.stringify(issue));
         return {
             id: issue.id,
             key: issue.key,

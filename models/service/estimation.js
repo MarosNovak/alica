@@ -1,7 +1,7 @@
 var jira = GETSCHEMA('Jira').make();
 var Responder = GETSCHEMA('Responder');
 
-NEWSCHEMA('Planning').make(function(schema) {
+NEWSCHEMA('Estimation').make(function(schema) {
 
     schema.define('results', 'Object');
     schema.define('originalChannel', 'String');
@@ -16,7 +16,7 @@ NEWSCHEMA('Planning').make(function(schema) {
         }
     });
     /**
-     * Start planning
+     * Start Estimation
      * @param {Object} options - { intent: Intent, members: Array }
      */
     schema.addWorkflow('startVoting', function(error, model, options, callback) {
@@ -37,7 +37,7 @@ NEWSCHEMA('Planning').make(function(schema) {
                 console.log('CHYBA: ', err);
                 return callback();
             } else {
-                Responder.operation('votingResponder', parsedIssue, function(err, votingResponse) {
+                Responder.operation('voteMessage', parsedIssue, function(err, votingResponse) {
                     if (err) {
                         console.log('CHYBA: ', err);
                         return callback();
@@ -49,7 +49,7 @@ NEWSCHEMA('Planning').make(function(schema) {
     });
 
     /**
-     * Start planning
+     *
      * @param {Object} options - { slackID, value }
      */
     schema.addWorkflow('userVoted', function(error, model, options, callback) {
@@ -69,13 +69,25 @@ NEWSCHEMA('Planning').make(function(schema) {
     });
 
     schema.addWorkflow('votingFinished', function(error, model, options, callback) {
-        Responder.operation('votingResultsReponder', model.results, function(err, response) {
+        Responder.operation('votingResults', model.results, function(err, response) {
             response.channel = model.originalChannel;
             if (err) {
                 console.log('CHYBA: ', err);
                 return callback();
             }
             return callback(response);
+        });
+    });
+
+    schema.addWorkflow('setStoryPoints', function(error, model, options, callback) {
+        jira.$workflow('setStoryPoints', options, function(err, response) {
+            if (err) {
+                console.log('CHYBA: ', err);
+                return callback();
+            }
+            Responder.operation('storyPointsSet', options, function(err, response) {
+                return callback(response);
+            });
         });
     });
 });

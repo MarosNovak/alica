@@ -5,5 +5,11 @@ version                             : 1.0.0
 WARNING_STANDUP_TIME                : Incorrect time format. Please try `9:00` or `13PM` for example.
 WARNING_STANDUP_USERS               : Users or action not defined. Try to use 'add/remove @user to daily standup' format.
 WARNING_STANDUP_CHANNEL             : Channel is not defined. Please set channel with #channel.
-WARNING_ADMIN_RIGHTS                : USer or action not defined. Try to use 'add/remove @user admin rights'.
+WARNING_ADMIN_RIGHTS                : User or action not defined. Try to use 'add/remove @user admin rights'.
 WARNING_NOT_AUTHORIZED              : You don't have a permission for this action.
+WARNING_NO_ISSUES                   : Issues not defined.
+WARNING_COMMENT_INVALID             : Issue number or comment is not defined. Please use `add comment FR-number 'your comment'` format.
+WARNING_ASSIGN_INVALID              : User or issue is not defined. Try to use 'assign issue FR-number to @user' format.
+WARNING_VOTING_CHANNEL              : You can use planning only in public channel.
+WARNING_VOTING_ISSUE                : Issue is not defined. Please use 'let's vote about FR-number issue' format.
+WARNING_SET_POINTS                  : Issue or story points are not defined. Please try 'Set 5 story points for issue FR-number' format.

@@ -117,8 +117,14 @@ NEWSCHEMA('Parser').make(function(schema) {
                 message: message,
                 parameters: response.result.parameters
             }
+            if (intent.module.includes('smalltalk')) {
+                intent.module = 'SMALLTALK';
+            }
+
             if (intent.parameters.issues) {
                 intent.parameters.issues = validateIssuesKeys(message.text);
+            } else if (intent.parameters.issue) {
+                intent.parameters.issue = validateIssuesKeys(message.text).first();
             }
 
             console.log('🤖 RECEIVED INTENT\n', intent);

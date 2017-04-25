@@ -97,7 +97,7 @@ NEWSCHEMA('Standup').make(function(schema) {
         }
 
         if (message.question == model.questions[0]) {
-            if (intent.parameters && intent.parameters.issues.length) {
+            if (intent.parameters && intent.parameters.issues) {
                 analyzeFirstAnswer(intent, model.contextIssues, function(incorrect) {
                     currentUser.answers.push({
                         question: 'Yesterday - Done',
@@ -128,7 +128,7 @@ NEWSCHEMA('Standup').make(function(schema) {
         }
 
         if (message.question.includes(model.questions[1])) {
-            if (intent.parameters && intent.parameters.issues.length) {
+            if (intent.parameters && intent.parameters.issues) {
                 analyzeSecondAnswer(intent, model.contextIssues, function(incorrect) {
                     currentUser.answers.push({
                         question: 'Yesterday - In Progress',
@@ -159,7 +159,7 @@ NEWSCHEMA('Standup').make(function(schema) {
         }
 
         if (message.question.includes(model.questions[2])) {
-            if (intent.parameters && intent.parameters.issues.length) {
+            if (intent.parameters && intent.parameters.issues) {
                 analyzeThirdAnswer(intent, model.contextIssues, function(incorrect) {
                     currentUser.answers.push({
                         question: 'Today',
@@ -167,7 +167,6 @@ NEWSCHEMA('Standup').make(function(schema) {
                         issues: intent.parameters.issues,
                         incorrect: incorrect.map(function(iss) {return iss.key;})
                     });
-
                     Responder.operation('standupJiraCheckMessage', { incorrect, type: 'assigned to you' }, function (error, response) {
                         textMessage = response + model.questions[3];
                         conversation.next();
@@ -182,10 +181,19 @@ NEWSCHEMA('Standup').make(function(schema) {
                          issues: null,
                          incorrect: null
                      });
+
+                     jira.$workflow('getUsersInProgressIssues', intent.user.email, function(error, inProgress) {
+                         Responder.operation('standupJiraCheckMessage', { inProgress, type: 'Ongoing' }, function (error, response) {
+                             textMessage = response + model.questions[3];
+                             conversation.next();
+                             return callback(error, { textMessage, currentUser, standupFinished, standupCanceled });
+                         });
+                     });
+                 } else {
+                     conversation.next();
+                     textMessage = model.questions[3];
+                     return callback(error, { textMessage, currentUser, standupFinished, standupCanceled });
                  }
-                 conversation.next();
-                 textMessage = model.questions[3];
-                 return callback(error, { textMessage, currentUser, standupFinished, standupCanceled });
             }
         }
 

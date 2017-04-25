@@ -13,6 +13,15 @@ NEWSCHEMA('Responder').make(function(schema) {
         return callback({ text: '⚠️ ' + message });
     });
 
+    /**
+     * MODULE DISABLED MESSAGE
+     * @param {Object} options - module
+     * @return {Object} - {responseMessage}
+     */
+    schema.addOperation('moduleDisabled', function(error, model, options, callback) {
+        return callback({ text: '⚠️ Module *' + options.name + '* is disabled.' });
+    });
+
     // ****************************************************************************
     // GENERAL messages
     // ****************************************************************************
@@ -84,7 +93,7 @@ NEWSCHEMA('Responder').make(function(schema) {
     });
 
     /**
-     * Build USer's daily standup response from answers
+     * Build User's daily standup response from answers
      * @param {Object} currentUser - { answers[], finished, blockers, icon }
      * @return {Object} - {responseMessage}
      */
@@ -93,7 +102,7 @@ NEWSCHEMA('Responder').make(function(schema) {
     });
 
     /**
-     * Build USer's daily standup response from answers
+     * Build User's daily standup response from answers
      * @param {Object} reports - { users[] }
      * @return {Object} - {responseMessage}
      */
@@ -101,16 +110,93 @@ NEWSCHEMA('Responder').make(function(schema) {
         return callback(buildStandupSummary(reports));
     });
 
+    // ****************************************************************************
+    // MONITORING messages
+    // ****************************************************************************
+
+    /**
+     * Issues list
+     * @param {String} issues
+     * @return {Object} - {responseMessage}
+     */
+    schema.addOperation('issuesList', function(error, model, issues, callback) {
+        return callback(buildIssuesList(issues));
+    });
+
+    /**
+     * Issue detail
+     * @param {String} issue
+     * @return {Object} - {responseMessage}
+     */
+    schema.addOperation('issueDetail', function(error, model, issue, callback) {
+        return callback(buildIssueDetail(issue));
+    });
+
+    /**
+     * Added comment response
+     * @param {String} options - { issue, comment }
+     * @return {Object} - {responseMessage}
+     */
+    schema.addOperation('addedComment', function (error, model, options, callback) {
+        return callback({
+            text: '💬 Comment added to <' + buildIssueLink(options.issue) + '|' + options.issue.toUpperCase() + '>: ```'+ options.comment +'```'
+        });
+    });
+
+    /**
+     * Assigned issue to user
+     * @param {String} options - { user, issueKey }
+     * @return {Object} - {responseMessage}
+     */
+    schema.addOperation('assignedIssue', function (error, model, options, callback) {
+        return callback({ text:'✋🏻 Done. Issue <' + buildIssueLink(options.issueKey) + '|' + options.issueKey.toUpperCase() + '> assigned to <@'+ options.user.slackID + '>.'});
+    });
+
+    // ****************************************************************************
+    // ESTIMATION messages
+    // ****************************************************************************
+
+    /**
+     * Voting started ...
+     * @param {String} issueKey
+     * @return {Object} - {responseMessage}
+     */
+    schema.addOperation('votingStarted', function(error, model, issueKey, callback) {
+        return callback({ text: 'Voting for <' + buildIssueLink(issueKey) + '|' + issueKey.toUpperCase() + '> has beed started ...' });
+    });
+
+    /**
+     * Vote direct message
+     * @param {String} issue
+     * @return {Object} - {responseMessage}
+     */
+    schema.addOperation('voteMessage', function (error, model, issue, callback) {
+        return callback(buildVotingMessage(issue));
+    });
+
+    /**
+     * Voting results message
+     * @param {String} votingResults
+     * @return {Object} - {responseMessage}
+     */
+    schema.addOperation('votingResults', function (error, model, votingResults, callback) {
+        return callback(buildVotingResults(votingResults));
+    });
+
+    /**
+     * Story points set message
+     * @param {String} options - issueKey, points
+     * @return {Object} - {responseMessage}
+     */
+    schema.addOperation('storyPointsSet', function (error, model, options, callback) {
+        return callback({text: 'Set. User story <' + buildIssueLink(options.issueKey) + '|' + options.issueKey.toUpperCase() + '> was estimated for *' + options.points + '* story points.'});
+    });
+
+
+
+
     schema.addOperation('helpResponder', function (error, model, options, callback) {
         return callback(buildHelp());
-    });
-
-    schema.addOperation('issuesResponder', function(error, model, issues, callback) {
-        return callback(buildResponderIssues(issues));
-    });
-
-    schema.addOperation('issueDetailResponder', function(error, model, issue, callback) {
-        return callback(buildIssueDetail(issue));
     });
 
     schema.addOperation('enableModuleResponder', function (error, model, options, callback) {
@@ -119,22 +205,6 @@ NEWSCHEMA('Responder').make(function(schema) {
 
     schema.addOperation('basicResponder', function (error, model, message, callback) {
         return callback(buildBasicResponder(message));
-    });
-
-    schema.addOperation('usersIssuesResponder', function (error, model, usersIssues, callback) {
-        return callback(buildResponderIssues(usersIssues));
-    });
-
-    schema.addOperation('addedCommentResponder', function (error, model, options, callback) {
-        return callback(buildAddedCommentResponder(options));
-    });
-
-    schema.addOperation('votingResponder', function (error, model, issue, callback) {
-        return callback(buildVotingResponder(issue));
-    });
-
-    schema.addOperation('votingResultsReponder', function (error, model, votingResults, callback) {
-        return callback(buildVotingResultsResponder(votingResults));
     });
 
     // ****************************************************************************
@@ -202,7 +272,18 @@ NEWSCHEMA('Responder').make(function(schema) {
     function buildJiraCheckMessage(options) {
         var issues = options.incorrect;
         var answer;
-        if (!issues.length) {
+
+        if (options.type == 'Ongoing') {
+            if (options.inProgress.length) {
+                answer = 'Okay. Please keep on your mind these *yours In Progress* issues: ';
+                options.inProgress.forEach(function(issue) {
+                    answer = answer + '<' + buildIssueLink(issue.key) + '|' + issue.key.toUpperCase() + '> ';
+                });
+                answer = answer + '\n';
+            } else {
+                answer = '👌🏼 Okay everything looks good in Jira.\n';
+            }
+        } else if (!issues.length) {
             answer = '👌🏼 Ok. Issues are ' + options.type + ' in Jira.\n';
         } else if (issues.length == 1) {
             answer = '⚠️ Please update issue in Jira, because <' + buildIssueLink(issues.first().key) + '|' + issues.first().key.toUpperCase() + '> is *not ' + options.type + '*.\n';
@@ -367,13 +448,64 @@ NEWSCHEMA('Responder').make(function(schema) {
         return json;
     }
 
+    // ****************************************************************************
+    // MONITORING messages
+    // ****************************************************************************
+
+    function buildIssuesList(issues) {
+        var self = this;
+        var json = {
+            text: '📦 Here are ' + issues.length + ' issues returned from Jira.',
+            attachments: []
+        };
+        issues.forEach(function (issue) {
+            var object = buildFieldsForBasicIssue(issue);
+            json.attachments.push(object);
+        });
+        return json;
+    }
+
+    function buildFieldsForBasicIssue(issue) {
+        var self = this;
+        var object = {
+            text: '`' + issue.status + '` <' + buildIssueLink(issue.key) + '|' + issue.key + '> ' + issue.title,
+            color: priorityColorForIssue(issue),
+            footer: issue.typeName + ' | Priority: ' + issue.priority + ' | Assignee: ' + issue.assignee,
+            footer_icon: issue.typeImage,
+            mrkdwn_in: ['text'],
+        }
+        return object;
+    }
+
+    function priorityColorForIssue(issue) {
+        switch (issue.priority) {
+            case 'Highest':
+                return '#EC181D';
+            case 'High':
+                return '#F83E20';
+            case 'Medium':
+                return '#F58925';
+            case 'Low':
+                return '#E3E235';
+            case 'Lowest':
+                return '#A3CF2C';
+            default:
+            break;
+        }
+    }
+
+    function buildIssueLink(issueKey) {
+        let base = '/browse/';
+        return `${process.env.PROTOCOL}://${process.env.HOST}:${process.env.PORT}${base}${issueKey}`;
+    }
+
     function buildIssueDetail(issue) {
         epochTime = new Date(issue.updated).getTime() / 1000;
         var json = {
-            text: '<' + buildIssueLink(issue.key) + '|' + issue.key + '> ' + issue.title,
+            text: '<' + buildIssueLink(issue.key) + '|' + issue.key + '> *' + issue.title + '*',
             attachments: [
                 {   text: issue.description,
-                    color: '#23B6BA',
+                    color: '#217CBA',
                     author_name: issue.typeName,
                     author_icon: issue.typeImage,
                     mrkdwn_in: ['text', 'fields'],
@@ -399,66 +531,115 @@ NEWSCHEMA('Responder').make(function(schema) {
                             short: true
                         }
                     ]
+                }, {
+                    text: 'Do you want to change the status?',
+                    color: '#217CBA',
+                    callback_id: 'JIRA-ACTION',
+                    actions: [
+                        {
+                        name: issue.key,
+                        text: 'To Do',
+                        type: 'button',
+                        value: 11
+                       }, {
+                        name: issue.key,
+                        text: 'In Progress',
+                        type: 'button',
+                        value: 21
+                      }, {
+                        name: issue.key,
+                        text: 'Done',
+                        type: 'button',
+                        value: 31
+                     }]
                 }
             ]
         };
         return json;
     }
 
-    function buildResponderIssues(issues) {
-        var self = this;
+    // ****************************************************************************
+    // ESTIMATION messages
+    // ****************************************************************************
+
+    function buildVotingMessage(issue) {
         var json = {
-            text: 'Showing ' + issues.length + ' issues returned from Jira.',
-            attachments: []
+            text: 'Voting for issue <' + buildIssueLink(issue.key) + '|' + issue.key + '> has been started. Please choose amount of story points.\n *' + issue.title + '*',
+            attachments: [
+                {   text: issue.description,
+                    color: '#217CBA',
+                    author_name: issue.typeName,
+                    author_icon: issue.typeImage,
+                    callback_id: 'VOTE',
+                    actions: [ { name: '0', text: '0', type: 'button', value: 0 }, { name: '1', text: '1', type: 'button', value: 1 }, { name: '2', text: '2', type: 'button', value: 2 }, { name: '3', text: '3', type: 'button', value: 3 }, { name: '5', text: '5', type: 'button', value: 5 }
+                    ]
+                },
+                {   text: '',
+                    color: '#217CBA',
+                    callback_id: 'VOTE',
+                    actions: [ { name: '8', text: '8', type: 'button', value: 8 }, { name: '13', text: '13', type: 'button', value: 13 }, { name: '20', text: '20', type: 'button', value: 20 }, { name: '40', text: '40', type: 'button', value: 40 }, { name: '100', text: '100', type: 'button', value: 100 }
+                    ]
+                },
+                {   text: '',
+                    color: '#217CBA',
+                    callback_id: 'VOTE',
+                    actions: [ { name: '?', text: '?', type: 'button', value: '?' }, { name: 'coffee', text: '☕️', type: 'button', value: 'coffee' } ]
+                }
+            ]
         };
-        issues.forEach(function (issue) {
-            var object = buildFieldsForBasicIssue(issue);
-            json.attachments.push(object);
+        return json;
+    }
+
+    function buildVotingResults(votingResults) {
+        var min = 101;
+        var max = 0;
+        var maxUser;
+        var minUser;
+        var sum = 0;
+        var allUsers = '';
+
+        votingResults.users.forEach(function(element) {
+            if (element.value > max) {
+                max = parseInt(element.value);
+                maxUser = element.key;
+             }
+            if (element.value < min) {
+                min = parseInt(element.value);
+                minUser = element.key;
+            }
+            allUsers += '`'+ element.value +'` - <@' + element.key + '>\n';
+            sum = sum + parseInt(element.value);
         });
 
-        return json;
-    }
-
-    function priorityColorForIssue(issue) {
-        switch (issue.priority) {
-            case 'Highest':
-                return '#EC181D';
-            case 'High':
-                return '#F83E20';
-            case 'Medium':
-                return '#F58925';
-            case 'Low':
-                return '#E3E235';
-            case 'Lowest':
-                return '#A3CF2C';
-            default:
-            break;
-        }
-    }
-
-    function buildAddedCommentResponder(options) {
         var json = {
-            text: 'Comment added to issue <' + buildIssueLink(options.issue) + '|' + options.issue + '> :v: ```'+ options.comment +'```'
-        };
-        return json;
-    }
-
-    function buildFieldsForBasicIssue(issue) {
-        var self = this;
-        var object = {
-            text: '`' + issue.status + '` <' + buildIssueLink(issue.key) + '|' + issue.key + '> ' + issue.title,
-            color: priorityColorForIssue(issue),
-            footer: issue.typeName + ' | Priority: ' + issue.priority + ' | Assignee: ' + issue.assignee,
-            footer_icon: issue.typeImage,
-            mrkdwn_in: ['text'],
+            text: 'Voting has been completed. Here are the results:',
+            attachments: [
+                {
+                    mrkdwn_in: [ "text", "fields" ],
+                    fields: [
+                        {
+                            title: 'Maximum',
+                            value: max > 0 ? ('*' + max + '* - <@' + maxUser + '>') : '-',
+                            short: true
+                        }, {
+                            title: 'Minimum',
+                            value: min < 101 ? ('*' + min + '* - <@' + minUser + '>') : '-',
+                            short: true
+                        }, {
+                            title: 'Average',
+                            value: sum > 0 ? sum / votingResults.users.length : '-',
+                            short: true
+                        }],
+                    color: '#217CBA'
+                },
+                {
+                    mrkdwn_in: [ "text" ],
+                    text: allUsers,
+                    color: '#217CBA'
+                }
+            ]
         }
-
-        return object;
-    }
-
-    function buildIssueLink(issueKey) {
-        let base = '/browse/';
-        return `${process.env.PROTOCOL}://${process.env.HOST}:${process.env.PORT}${base}${issueKey}`;
+        return json;
     }
 
     function buildHelp() {
@@ -494,89 +675,5 @@ NEWSCHEMA('Responder').make(function(schema) {
         } else {
             return message;
         }
-    }
-
-    function buildVotingResponder(issue) {
-        var json = {
-            text: 'Voting for issue <' + buildIssueLink(issue.key) + '|' + issue.key + '> has been started. Please choose amount of story points.\n *' + issue.title + '*',
-            attachments: [
-                {   text: issue.description,
-                    color: '#217CBA',
-                    author_name: issue.typeName,
-                    author_icon: issue.typeImage,
-                    callback_id: 'VOTE',
-                    actions: [ { name: '0', text: '0', type: 'button', value: 0 }, { name: '1', text: '1', type: 'button', value: 1 }, { name: '2', text: '2', type: 'button', value: 2 }, { name: '3', text: '3', type: 'button', value: 3 }, { name: '5', text: '5', type: 'button', value: 5 }
-                    ]
-                },
-                {   text: '',
-                    color: '#217CBA',
-                    callback_id: 'VOTE',
-                    actions: [ { name: '8', text: '8', type: 'button', value: 8 }, { name: '13', text: '13', type: 'button', value: 13 }, { name: '20', text: '20', type: 'button', value: 20 }, { name: '40', text: '40', type: 'button', value: 40 }, { name: '100', text: '100', type: 'button', value: 100 }
-                    ]
-                },
-                {   text: '',
-                    color: '#217CBA',
-                    callback_id: 'VOTE',
-                    actions: [ { name: '?', text: '?', type: 'button', value: '?' }, { name: 'coffee', text: '☕️', type: 'button', value: 'coffeee' } ]
-                }
-            ]
-        };
-        return json;
-    }
-
-    function buildVotingResultsResponder(votingResults) {
-        console.log('elements', votingResults);
-
-        var min = 101;
-        var max = 0;
-        var maxUser;
-        var minUser;
-        var sum = 0;
-        var allUsers = '';
-
-        votingResults.users.forEach(function(element) {
-            if (element.value > max) {
-                max = parseInt(element.value);
-                maxUser = element.key;
-             }
-            if (element.value < min) {
-                min = parseInt(element.value);
-                minUser = element.key;
-            }
-            allUsers += '`'+ element.value +'` - <@' + element.key + '>\n';
-            sum = sum + parseInt(element.value);
-        });
-
-        console.log('V SUME VOGULE NEZNAM', sum);
-
-        var json = {
-            text: 'Voting has been completed. Here are the results:',
-            attachments: [
-                {
-                    mrkdwn_in: [ "text", "fields" ],
-                    fields: [
-                        {
-                            title: 'Maximum',
-                            value: '*' + max + '* - <@' + maxUser + '>',
-                            short: true
-                        }, {
-                            title: 'Minimum',
-                            value: '*' + min + '* - <@' + minUser + '>',
-                            short: true
-                        }, {
-                            title: 'Average',
-                            value: sum / votingResults.users.length,
-                            short: true
-                        }],
-                    color: '#217CBA'
-                },
-                {
-                    mrkdwn_in: [ "text" ],
-                    text: allUsers,
-                    color: '#217CBA'
-                }
-            ]
-        }
-        return json;
     }
 });
