@@ -210,6 +210,7 @@ NEWSCHEMA('Standup').make(function(schema) {
             }
             model.conversations.splice(model.conversations.indexOf(conversation), 1);
             conversation.context.bot.say({ text:'Thank you.', channel: conversation.context.user });
+            conversation.stop();
             if (!model.conversations.length) {
                 standupFinished = true;
             }
