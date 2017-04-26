@@ -1,6 +1,8 @@
 var JiraApi = require('jira-client');
 var contextJQL = 'project = FR AND status in ("In Progress", Done, "To Do") AND updated >= -6d';
 var usersInProgressJQL = 'status = "In Progress" AND assignee =';
+var usersIssuesJQL = 'status in (Open, \'In Progress\', \'To Do\', Reopened) AND assignee =';
+
 
 NEWSCHEMA('Jira').make(function(schema) {
     schema.define('jira', 'Object');
@@ -64,8 +66,9 @@ NEWSCHEMA('Jira').make(function(schema) {
             error.push('Missing user email');
             return callback();
         }
+        var query = usersIssuesJQL + email.replace('@', '\\u0040');
         console.log('NACITAVAM JIRA');
-        model.jira.getUsersIssues(email, true).then(function (jiraResponse) {
+        model.jira.searchJira(query).then(function(jiraResponse) {
             console.log('NACITANA JIRA');
             console.log('JIRA POLE', jiraResponse);
             var jsonResponder;
@@ -117,7 +120,7 @@ NEWSCHEMA('Jira').make(function(schema) {
         model.jira.searchUsers({ username: options.user.email }).then(function(responseArray) {
             if (Array.isArray(responseArray)) {
                 user = responseArray.first();
-                model.jira.updateIssue(options.issueKey, { fields: { assignee: user.name }}).then(function(response) {
+                model.jira.updateIssue(options.issueKey, { fields: { assignee: { name: user.name }}}).then(function(response) {
                     return callback(response);
                 });
             }
@@ -158,7 +161,7 @@ NEWSCHEMA('Jira').make(function(schema) {
 
     schema.addWorkflow('getUsersInProgressIssues', function(error, model, email, callback) {
         var issues = [];
-        var query = usersInProgressJQL + email;
+        var query = usersInProgressJQL + email.replace('@', '\\u0040');
         model.jira.searchJira(query).then(function(response) {
             if (response.total > 0 && Array.isArray(response.issues)) {
                 response.issues.forEach(function(issue) {
