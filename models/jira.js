@@ -113,8 +113,7 @@ NEWSCHEMA('Jira').make(function(schema) {
      * @return {Object} response
      */
     schema.addWorkflow('assignIssue', function (error, model, options, callback) {
-        username = ${user.email.replace('@', '\\u0040')}
-        
+        username = user.email.replace('@', '\\u0040');
         model.jira.searchUsers({ username: username }).then(function(responseArray) {
             if (Array.isArray(responseArray)) {
                 user = responseArray.first();
