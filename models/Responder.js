@@ -22,6 +22,14 @@ NEWSCHEMA('Responder').make(function(schema) {
         return callback({ text: '⚠️ Module *' + options.name + '* is disabled.' });
     });
 
+    /**
+     * HELP MESSAGE
+     * @return {Object} - {responseMessage}
+     */
+    schema.addOperation('help', function(error, model, options, callback) {
+        return callback(buildHelp());
+    });
+
     // ****************************************************************************
     // GENERAL messages
     // ****************************************************************************
@@ -46,6 +54,15 @@ NEWSCHEMA('Responder').make(function(schema) {
             users += '<@' + user.slackID + '> ';
         });
         return callback({ text: '👥 ' + (options.action ? 'Added.' : 'Removed.') + ' Admin rights now have ' + users });
+    });
+
+    /**
+     * MODULE STATUS CHANGE
+     * @param {Object} options - { module, enabled }
+     * @return {Object} - {responseMessage}
+     */
+    schema.addOperation('moduleStatusChanged', function(error, model, options, callback) {
+        return callback({ text: 'Module *' + options.slackModule.name + (options.enabled ? '* enabled.' : '* disabled.') });
     });
 
     // ****************************************************************************
@@ -190,21 +207,6 @@ NEWSCHEMA('Responder').make(function(schema) {
      */
     schema.addOperation('storyPointsSet', function (error, model, options, callback) {
         return callback({text: 'Set. User story <' + buildIssueLink(options.issueKey) + '|' + options.issueKey.toUpperCase() + '> was estimated for *' + options.points + '* story points.'});
-    });
-
-
-
-
-    schema.addOperation('helpResponder', function (error, model, options, callback) {
-        return callback(buildHelp());
-    });
-
-    schema.addOperation('enableModuleResponder', function (error, model, options, callback) {
-        return callback(buildEnableModuleResponder(options));
-    });
-
-    schema.addOperation('basicResponder', function (error, model, message, callback) {
-        return callback(buildBasicResponder(message));
     });
 
     // ****************************************************************************
@@ -643,37 +645,36 @@ NEWSCHEMA('Responder').make(function(schema) {
     }
 
     function buildHelp() {
-        var title = 'This is a few commands I understand:\n\n';
+        var title = 'I\'m here to help you. This is a few setences I\'m able to understand:\n\n';
         var general = '*_General Commands_*\n';
-        var status = '`status` give you current modules status.\n';
-        var enableModule =  '`enable {module}` will activate module: _standup_, _monitoring_, _Monitoring_.\n';
-        var disableModule = '`disable {module}` stop module.\n';
-        var help = '`help` for this wondeful and useful list.\n';
-        var admin = '`admin {@users}` will set rights for various commands.\n\n'
-        var standup = '*_Standup_*\n';
-        var startStandup = '`start standup` will automatically start daily standup for your team.\n';
-        var cancel = '`cancel` cancel current standup.\n';
-        var schedule = '`standup time {HH:MM}` for scheduling daily standups.\n';
-        var nope = '`skip` `no` `nope` `nothing` `none` for skip question.\n'
-        var add = '`standup add {@users}` to invite users for daily standup.\n\n';
+        var status = '`Modules status` _Can you show me modules status?_\n';
+        var modulesChange =  '`Modules activation` _{Turn off/on} {reporting/standup/monitoring} please._\n';
+        var admin = '`Admin rights` _Please {add/remove} admin rights to {@user}._\n';
+        var help = '`Help` _Can you help me please?_ \n\n';
+        var standup = '*_Daily Standup settings_*\n';
+        var startStandup = '`Start daily standup` _Start standup._\n';
+        var standupUsers = '`Standup users` _{Add/remove} {@user} to daily standup._\n';
+        var standupTime = '`Standup time` _Setup daily meeting for {9:00} please._\n';
+        var standupChannel = '`Standup channel` _Setup report channel to {#channel}._\n\n';
+        var standupOngoing = '*_During Standup meeting_*\n';
+        var answer = '`Answer question` _I was working on {FR-43}._\n';
+        var cancel = '`Cancel all meeting` _cancel_\n';
+        var ignore = '`Ignore meeting` _ignore_\n';
+        var nope = '`Skip question` _skip, no, nope, nothing, none_\n\n'
         var monitoring = '*_Monitoring_*\n';
-        var monitor = '`monitor` will automatically start tracking current sprint and notify about any problem.\n\n';
-        var Monitoring = '*_Monitoring_*\n';
-        var issues = '`sprint issues` provide list of issues in current sprint.\n';
-        var users = '`@user -i` provide list of assigned issues.\n';
-        var issue = '`{Issue number} progress` progress about specific issue.';
+        var summary = '`Sprint summary` _Please show me all issues._\n'
+        var issues = '`Jira issues` _Show me status of {FR-12}, {FR-33}_.\n';
+        var myIssues = '`Jira my issues` _Can you show me my tickets?_.\n';
+        var usersIssues = '`Jira users issues` _Can you show me issues of {@user}_.\n';
+        var assign = '`Jira assign issue` _Assign issue {FR-12} to {@user} / Assign issue {FR-12} to me_.\n';
+        var addComment = '`Jira add comment` _Add comment to issues {FR-12} {‘text’}._\n\n';
+        var estimation = '*_Estimation_*\n';
+        var vote = '`Start voting` _Let’s vote about {FR-51}._\n';
+        var storyPoints = '`Set story points` _Setup story points {5} to issue {FR-25}._\n';
 
         var json = {
-            text: title + general + status + enableModule + disableModule + help + admin + standup + startStandup + cancel + schedule + nope + add + monitoring + monitor + Monitoring + issues + users + issue
+            text: title + general + status + modulesChange + admin + help + standup + startStandup + standupUsers + standupTime + standupChannel + standupOngoing + answer + cancel + ignore + nope + monitoring + summary + issues + myIssues + usersIssues + assign + addComment + estimation + vote + storyPoints
         };
         return json;
-    }
-
-    function buildBasicResponder(message) {
-        if (!message) {
-            console.log('FAILED BUILD BASIC RESPONSE');
-        } else {
-            return message;
-        }
     }
 });

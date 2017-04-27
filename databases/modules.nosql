@@ -1,3 +1,3 @@
 {"name":"Daily Standup","enabled":true,"description":"Use `start standup` for launching.","projectName":"Fris-kill","content":{"users":[{"slackID":"U0GMBQNPJ"},{"slackID":"U49EV9E2U"}],"channel":"C4YUCBD0W","scheduledTime":"10:55"}}
-{"name":"Monitoring","enabled":true,"description":"Monitoring jira issues.","projectName":"Fris-kill","content":null}
+{"name":"Monitoring","enabled":false,"description":"Monitoring jira issues.","projectName":"Fris-kill","content":null}
 {"name":"Estimation","enabled":true,"description":"Planning jira issues.","projectName":"Fris-kill","content":null}

@@ -26,10 +26,7 @@ NEWSCHEMA('Monitoring').make(function(schema) {
                 console.log('CHYBA: ', err);
                 return callback();
             } else if (response.error) {
-                Responder.operation('basicResponder', { text: response.error }, function(err, message) {
-                    console.log(message);
-                    return callback(message);
-                });
+                return callback({ text: response.error });
             } else if (Array.isArray(response)) {
                 Responder.operation('issuesList', response, function(err, responseIssues) {
                     if (err) {
@@ -56,10 +53,7 @@ NEWSCHEMA('Monitoring').make(function(schema) {
                 console.log('CHYBA: ', err);
                 return callback();
             } else if (response.error) {
-                Responder.operation('basicResponder', { text: response.error }, function(err, message) {
-                    console.log(message);
-                    return callback(message);
-                });
+                return callback({ text: response.error });
             } else {
                 Responder.operation('issuesList', response, function(err, responseIssues) {
                     if (err) {
@@ -78,9 +72,7 @@ NEWSCHEMA('Monitoring').make(function(schema) {
                 console.log('CHYBA: ', err);
                 return callback();
             } else if (response.error) {
-                Responder.operation('basicResponder', { text: response.error }, function(err, message) {
-                    return callback(message);
-                });
+                return callback({ text: response.error });
             } else {
                 Responder.operation('addedComment', response, function(err, responseMessage) {
                     if (err) {
@@ -99,10 +91,7 @@ NEWSCHEMA('Monitoring').make(function(schema) {
                 console.log('CHYBA: ', err);
                 return callback();
             } else if (parsedIssues.error) {
-                Responder.operation('basicResponder', { text: parsedIssues.error }, function(err, message) {
-                    console.log(message);
-                    return callback(message);
-                });
+                return callback({ text: response.error });
             } else {
                 Responder.operation('assignedIssue', options, function(err, responseMessage) {
                     if (err) {

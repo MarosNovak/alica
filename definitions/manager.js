@@ -49,6 +49,8 @@ slackbot.$workflow('connect', function(err) {
                 return processAddComment(intent);
             case 'JIRA-ASSIGN':
                 return processAssignIssue(intent);
+            case 'JIRA-ASSIGN-ME':
+                return processAssignToMeIssue(intent);
         }
     });
 
@@ -113,7 +115,7 @@ function processInit(message) {
     @param {Object} message received message form Slack
 */
 function processHelp(intent) {
-    Responder.operation('helpResponder', function (err, response) {
+    Responder.operation('help', function (err, response) {
         if (err) {
             console.log('CHYBA: ', err);
             return;
@@ -169,8 +171,9 @@ function processModuleChangeEnable(intent) {
                         if (error) {
                             return;
                         }
-                        var answer = { text: 'Module *' + slackModule.name + (enabled ? '* enabled.' : '* disabled.') };
-                        sendBasicAnswerMessage(intent.message, answer);
+                        Responder.operation('moduleStatusChanged', { slackModule, enabled }, function(err, response) {
+                            sendBasicAnswerMessage(intent.message, response);
+                        });
                     });
                 } else {
                     var answer = { text: 'Module not found.' };
@@ -397,7 +400,6 @@ function processAssignIssue(intent) {
     if (!slackID || !issueKey) {
         replyWithWarningMessage(intent.message, F.config.WARNING_ASSIGN_INVALID);
     }
-
     getModule('Monitoring', function(err, responseModule) {
         if (err) {
             console.log('ERROR');
@@ -409,6 +411,41 @@ function processAssignIssue(intent) {
             });
         } else {
             User.get({ filter : { slackID }}, function (error, user) {
+                if (error) {
+                    console.log('ERROR' , error);
+                    return;
+                }
+                console.log('USER', user);
+
+                Monitoring.operation('assignIssue', { user, issueKey }, function(err, response) {
+                    if (err) {
+                        console.log('CHYBA: ', err);
+                        return;
+                    }
+                    return sendBasicAnswerMessage(intent.message, response);
+                });
+            });
+        }
+    });
+}
+
+function processAssignToMeIssue(intent) {
+    var issueKey = intent.parameters.issue;
+
+    if (!issueKey) {
+        replyWithWarningMessage(intent.message, F.config.WARNING_ASSIGN_INVALID);
+    }
+    getModule('Monitoring', function(err, responseModule) {
+        if (err) {
+            console.log('ERROR');
+            return;
+        }
+        if (!responseModule.enabled) {
+            Responder.operation('moduleDisabled', responseModule, function(error, response) {
+                return sendBasicAnswerMessage(intent.message, response);
+            });
+        } else {
+            User.get({ filter : { slackID: intent.message.user }}, function (error, user) {
                 if (error) {
                     console.log('ERROR' , error);
                     return;
@@ -898,15 +935,9 @@ function replyWithWarningMessage(message, warningMessage) {
     @param {Object} message received message
     @param {Object} asnwer response message with text
 */
-function sendBasicAnswerMessage(message, answer) {
-    Responder.operation('basicResponder', answer, function (err, response) {
-        if (err) {
-            console.log('CHYBA: ', err);
-            return;
-        }
-        slackbot.$workflow('reply', { message, response }, function() {
-            console.log('ODOSLANE');
-            return;
-        });
+function sendBasicAnswerMessage(message, response) {
+    slackbot.$workflow('reply', { message, response }, function() {
+        console.log('ODOSLANE');
+        return;
     });
 }
