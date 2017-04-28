@@ -648,7 +648,7 @@ NEWSCHEMA('Responder').make(function(schema) {
         var title = 'I\'m here to help you. This is a few setences I\'m able to understand:\n\n';
         var general = '*_General Commands_*\n';
         var status = '`Modules status` _Can you show me modules status?_\n';
-        var modulesChange =  '`Modules activation` _{Turn off/on} {reporting/standup/monitoring} please._\n';
+        var modulesChange =  '`Modules activation` _{Turn off/on} {estimation/standup/monitoring} please._\n';
         var admin = '`Admin rights` _Please {add/remove} admin rights to {@user}._\n';
         var help = '`Help` _Can you help me please?_ \n\n';
         var standup = '*_Daily Standup settings_*\n';
