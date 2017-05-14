@@ -1,5 +1,5 @@
 var JiraApi = require('jira-client');
-var contextJQL = 'project = FR AND status in ("In Progress", Done, "To Do") AND updated >= -6d';
+var contextJQL = 'project = FR AND status in ("In Progress", Done, "To Do") AND updated >= -2d';
 var usersInProgressJQL = 'status = "In Progress" AND assignee =';
 var usersIssuesJQL = 'status in (Open, \'In Progress\', \'To Do\', Reopened) AND assignee =';
 
@@ -18,7 +18,7 @@ NEWSCHEMA('Jira').make(function(schema) {
         return new JiraApi({
             protocol: process.env.PROTOCOL,
             host: process.env.HOST,
-            port: 8080,
+            port: process.env.PORT,
             username: process.env.USERNAME,
             password: process.env.PASSWORD,
             strictSSL: false,
