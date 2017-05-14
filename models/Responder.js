@@ -498,7 +498,7 @@ NEWSCHEMA('Responder').make(function(schema) {
 
     function buildIssueLink(issueKey) {
         let base = '/browse/';
-        return `${process.env.PROTOCOL}://${process.env.HOST}:${process.env.PORT}${base}${issueKey}`;
+        return `${process.env.PROTOCOL}://${process.env.HOST}:${8080}${base}${issueKey}`;
     }
 
     function buildIssueDetail(issue) {
