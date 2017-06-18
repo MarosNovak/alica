@@ -45,6 +45,7 @@ NEWSCHEMA('Bot').make(function(schema) {
                     return;
                 }
                 if (intent) {
+                    model.bot.startTyping(message);
                     model.emitter.emit(intent.module, intent);
                 }
             });
@@ -58,6 +59,7 @@ NEWSCHEMA('Bot').make(function(schema) {
                     return;
                 }
                 if (intent) {
+                    model.bot.startTyping(message);
                     model.emitter.emit(intent.module, intent);
                 }
             });

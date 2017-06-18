@@ -88,6 +88,8 @@ slackbot.$workflow('connect', function(err) {
 function processSmallTalk(intent) {
     var response = { text: intent.parameters.simplified };
 
+    console.log(intent);
+
     slackbot.$workflow('reply', { message: intent.message, response }, function() {
         return;
     });
@@ -103,9 +105,9 @@ function processInit(message) {
             var filteredUsers = response.members.filter(m => !m.is_bot).map(formatNonBotMember);
             console.log('PARSED OBJECT MEMBERS', filteredUsers);
             var promises = filteredUsers.map(u => processUser(u));
-            return Promise.all(promises).catch(function(err) {
-                console.log('ERR: ' + err.toString());
-            });
+            // return Promise.all(promises).catch(function(err) {
+            //     console.log('ERR: ' + err.toString());
+            // });
         }
     });
 }

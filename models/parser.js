@@ -119,6 +119,7 @@ NEWSCHEMA('Parser').make(function(schema) {
             }
             if (intent.module.includes('smalltalk')) {
                 intent.module = 'SMALLTALK';
+                intent.parameters = { simplified: response.result.fulfillment.speech };
             }
 
             if (intent.parameters.issues) {
